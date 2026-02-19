@@ -23,15 +23,15 @@
     </div>
 
     <!-- Initiatives & Projects Gantt — full width -->
-    <section class="section-full">
+    <section class="section-full" id="gantt-section">
         <div class="gantt-inner-header">
             <h2>📅 Initiatives &amp; Projects</h2>
-            <div class="gantt-scale-controls" id="gantt-scale-controls">
-                <span class="gantt-scale-label">View:</span>
-                <button class="gantt-scale-btn" data-scale="3mo">3 mo</button>
-                <button class="gantt-scale-btn" data-scale="6mo">6 mo</button>
-                <button class="gantt-scale-btn" data-scale="1yr">1 yr</button>
-                <button class="gantt-scale-btn active" data-scale="all">All</button>
+            <div class="gantt-scale-controls">
+                <span class="gantt-scale-label">Range:</span>
+                <input type="number" id="gantt-range-input" class="gantt-range-input"
+                       min="1" max="120" step="1" value="12">
+                <span class="gantt-scale-label">months</span>
+                <span class="gantt-scale-hint">(Ctrl+scroll to zoom)</span>
             </div>
         </div>
         <div id="gantt-chart">
@@ -63,18 +63,18 @@
                     <p>Blocked</p>
                 </div>
             </div>
-            <div class="card card-done">
-                <div class="card-icon">✅</div>
-                <div class="card-content">
-                    <h3 id="done-count">-</h3>
-                    <p>Completed</p>
-                </div>
-            </div>
             <div class="card card-review">
                 <div class="card-icon">👀</div>
                 <div class="card-content">
                     <h3 id="review-count">-</h3>
                     <p>In Review</p>
+                </div>
+            </div>
+            <div class="card card-done">
+                <div class="card-icon">✅</div>
+                <div class="card-content">
+                    <h3 id="done-count">-</h3>
+                    <p>Completed</p>
                 </div>
             </div>
         </div>

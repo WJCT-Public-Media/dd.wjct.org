@@ -260,7 +260,7 @@ footer {
     min-height: 54px;
 }
 
-/* Fixed-width label column */
+/* Fixed-width label column — sticky so it stays visible when timeline scrolls */
 .gantt-label {
     flex: 0 0 240px;
     min-width: 0;
@@ -271,7 +271,13 @@ footer {
     gap: 6px;
     overflow: hidden;
     white-space: nowrap;
+    position: sticky;
+    left: 0;
+    z-index: 20;
+    background: inherit;
 }
+
+.gantt-header-row { background: var(--card-bg); }
 
 .gantt-label a {
     color: var(--text);
@@ -290,12 +296,12 @@ footer {
     flex-shrink: 0;
 }
 
-/* Flexible timeline column */
+/* Flexible timeline column — min-width set dynamically via JS */
 .gantt-timeline {
     flex: 1;
     position: relative;
-    min-width: 700px;
-    min-height: 36px;
+    min-width: var(--gantt-tl-width, 700px);
+    min-height: 54px;
 }
 
 /* Header row: taller to fit month labels */
@@ -486,9 +492,11 @@ footer {
 .section-full {
     background: var(--card-bg);
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
+    margin: 0 2rem 20px;
+    border-radius: 12px;
     padding-top: 25px;
     padding-bottom: 20px;
+    overflow: hidden;
 }
 
 .gantt-inner-header {
@@ -518,26 +526,55 @@ footer {
     margin-right: 2px;
 }
 
-.gantt-scale-btn {
-    padding: 4px 12px;
+.gantt-range-input {
+    width: 56px;
+    padding: 4px 8px;
     border: 1px solid var(--border);
     border-radius: 4px;
-    background: white;
-    font-size: 13px;
+    font-size: 14px;
     font-family: inherit;
+    text-align: right;
+    background: white;
+    color: var(--text);
+    -moz-appearance: textfield;
+}
+
+.gantt-range-input::-webkit-outer-spin-button,
+.gantt-range-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.gantt-range-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(0,102,204,0.15);
+}
+
+.gantt-scale-hint {
+    font-size: 11px;
+    color: #adb5bd;
+    white-space: nowrap;
+}
+
+/* Accordion toggle row */
+.gantt-accordion-row {
+    background: #f0f4f8;
     cursor: pointer;
-    transition: all 0.15s;
+    user-select: none;
 }
 
-.gantt-scale-btn.active {
-    background: var(--primary);
-    color: white;
-    border-color: var(--primary);
+.gantt-accordion-row:hover {
+    background: #e4ecf5;
 }
 
-.gantt-scale-btn:hover:not(.active) {
-    background: var(--bg);
-    border-color: var(--primary);
+.gantt-accordion-label {
+    color: var(--text-light);
+    font-size: 12px;
+    font-style: italic;
+    gap: 5px;
+}
+
+.gantt-accordion-icon {
+    font-size: 9px;
+    flex-shrink: 0;
 }
 
 /* Fade right edge for bars with no end date */

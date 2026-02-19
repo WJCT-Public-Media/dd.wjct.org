@@ -4,7 +4,15 @@ let allProjects = [];
 let allInitiatives = [];
 let metricsChartInstance = null;
 let lastUpdate = null;
-let ganttScale = 'all';
+let ganttRangeMonths = null; // null = span all data automatically
+const expandedAccordions = new Set();
+
+// Accordion toggle — called from inline onclick in Gantt HTML
+function toggleAccordion(key) {
+    if (expandedAccordions.has(key)) expandedAccordions.delete(key);
+    else expandedAccordions.add(key);
+    renderGantt();
+}
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', async () => {
@@ -23,15 +31,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderDashboard();
     });
 
-    // Gantt scale controls
-    document.querySelectorAll('.gantt-scale-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            ganttScale = btn.dataset.scale;
-            document.querySelectorAll('.gantt-scale-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+    // Gantt range input
+    const rangeInput = document.getElementById('gantt-range-input');
+    if (rangeInput) {
+        rangeInput.addEventListener('change', () => {
+            let v = parseInt(rangeInput.value, 10);
+            if (isNaN(v) || v < 1) v = 1;
+            if (v > 120) v = 120;
+            ganttRangeMonths = v;
+            rangeInput.value = v;
             renderGantt();
         });
-    });
+        rangeInput.addEventListener('keydown', e => { if (e.key === 'Enter') rangeInput.blur(); });
+    }
+
+    // Ctrl+Scroll to zoom the Gantt time range
+    document.getElementById('gantt-section')?.addEventListener('wheel', e => {
+        if (!e.ctrlKey && !e.metaKey) return;
+        e.preventDefault();
+        const current = ganttRangeMonths ?? computeDataRangeMonths();
+        const raw = Math.max(1, Math.min(120, current * (1 + e.deltaY / 250)));
+        ganttRangeMonths = Math.max(1, Math.round(trySnapMonths(raw)));
+        renderGantt();
+    }, { passive: false });
 });
 
 // Shared fetch helper — one GraphQL call through the Worker
@@ -126,20 +148,20 @@ function renderGantt() {
     const container = document.getElementById('gantt-chart');
 
     if (allProjects.length === 0) {
-        container.innerHTML = '<p class="loading">No projects found</p>';
+        container.innerHTML = '<p class="loading" style="padding:0 20px">No projects found</p>';
         return;
     }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Calculate date range from all project start/end dates
+    // Date range
     const allDates = allProjects
         .flatMap(p => [p.startDate, p.targetDate].filter(Boolean))
         .map(d => parseLocalDate(d));
 
     let rangeStart, rangeEnd;
-    if (ganttScale === 'all') {
+    if (ganttRangeMonths === null) {
         if (allDates.length > 0) {
             const minDate = new Date(Math.min(...allDates));
             const maxDate = new Date(Math.max(...allDates));
@@ -150,19 +172,26 @@ function renderGantt() {
             rangeEnd   = new Date(today.getFullYear(), today.getMonth() + 4, 0);
         }
     } else {
-        const fwd = { '3mo': 3, '6mo': 6, '1yr': 12 }[ganttScale] || 6;
         rangeStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-        rangeEnd   = new Date(today.getFullYear(), today.getMonth() + fwd, 0);
+        rangeEnd   = new Date(rangeStart.getFullYear(), rangeStart.getMonth() + ganttRangeMonths, 0);
     }
-
-    // Ensure today is always visible
     if (today < rangeStart) rangeStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
     if (today > rangeEnd)   rangeEnd   = new Date(today.getFullYear(), today.getMonth() + 2, 0);
 
-    const totalMs   = rangeEnd - rangeStart;
-    const todayPct  = toGanttPct(today, rangeStart, totalMs);
+    const totalMs  = rangeEnd - rangeStart;
+    const todayPct = toGanttPct(today, rangeStart, totalMs);
 
-    // Build list of first-of-month markers
+    // Dynamic timeline width: zoom in = wider canvas (more px/month)
+    const effectiveMonths = Math.max(1, Math.round(totalMs / (30.44 * 24 * 60 * 60 * 1000)));
+    const timelineMinWidth = Math.max(700, Math.min(5000, Math.round(6000 / effectiveMonths)));
+
+    // Update range input without interrupting active typing
+    const rangeInput = document.getElementById('gantt-range-input');
+    if (rangeInput && document.activeElement !== rangeInput) {
+        rangeInput.value = effectiveMonths;
+    }
+
+    // Month markers
     const months = [];
     let m = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
     while (m <= rangeEnd) {
@@ -170,93 +199,88 @@ function renderGantt() {
         m = new Date(m.getFullYear(), m.getMonth() + 1, 1);
     }
 
-    // Group projects under their initiative
-    const groups = {}; // initiativeId → { id, name, targetDate, projects[] }
+    // Group projects by initiative
+    const groups = {};
     const unassigned = [];
-
-    allInitiatives.forEach(init => {
-        groups[init.id] = { ...init, projects: [] };
-    });
-
+    allInitiatives.forEach(init => { groups[init.id] = { ...init, projects: [] }; });
     allProjects.forEach(project => {
         const inits = project.initiatives?.nodes || [];
         if (inits.length > 0) {
-            const init = inits[0]; // assign to first initiative
-            if (!groups[init.id]) {
-                groups[init.id] = { id: init.id, name: init.name, targetDate: null, projects: [] };
-            }
+            const init = inits[0];
+            if (!groups[init.id]) groups[init.id] = { id: init.id, name: init.name, targetDate: null, projects: [] };
             groups[init.id].projects.push(project);
         } else {
             unassigned.push(project);
         }
     });
 
-    // Sort projects within each group: In Progress → Backlog/other → Completed
+    // Sort within groups: In Progress → Backlog → Completed
     Object.values(groups).forEach(g => {
-        g.projects.sort((a, b) =>
-            projectStatusOrder(a.status?.name) - projectStatusOrder(b.status?.name)
-        );
+        g.projects.sort((a, b) => projectStatusOrder(a.status?.name) - projectStatusOrder(b.status?.name));
     });
-    unassigned.sort((a, b) =>
-        projectStatusOrder(a.status?.name) - projectStatusOrder(b.status?.name)
-    );
+    unassigned.sort((a, b) => projectStatusOrder(a.status?.name) - projectStatusOrder(b.status?.name));
 
-    // Build HTML rows
+    // Build rows
     let rows = '';
+
+    function renderGroup(label, projects, labelExtra = '') {
+        const projDates = projects
+            .flatMap(p => [p.startDate, p.targetDate].filter(Boolean))
+            .map(d => parseLocalDate(d));
+        let initBar = '';
+        if (projDates.length > 0) {
+            const s = toGanttPct(new Date(Math.min(...projDates)), rangeStart, totalMs);
+            const e = toGanttPct(new Date(Math.max(...projDates)), rangeStart, totalMs);
+            const w = Math.max(0.5, e - s);
+            initBar = `<div class="gantt-initiative-bar" style="left:${s.toFixed(2)}%;width:${w.toFixed(2)}%" title="${escapeHtml(label)}"></div>`;
+        }
+        rows += `
+            <div class="gantt-row gantt-initiative-row">
+                <div class="gantt-label gantt-initiative-label">${escapeHtml(label)}${labelExtra}</div>
+                <div class="gantt-timeline">
+                    <div class="gantt-today-line" style="left:${todayPct.toFixed(2)}%"></div>
+                    ${initBar}
+                </div>
+            </div>`;
+
+        const activeProjs    = projects.filter(p => !isProjectCompleted(p));
+        const completedProjs = projects.filter(p => isProjectCompleted(p));
+
+        activeProjs.forEach(p => { rows += renderProjectRow(p, today, rangeStart, totalMs, todayPct, rangeEnd); });
+
+        if (completedProjs.length > 0) {
+            const key      = `${label}_completed`;
+            const expanded = expandedAccordions.has(key);
+            rows += `
+                <div class="gantt-row gantt-accordion-row" onclick="toggleAccordion('${escapeHtml(key)}')">
+                    <div class="gantt-label gantt-accordion-label">
+                        <span class="gantt-indent">↳</span>
+                        <span class="gantt-accordion-icon">${expanded ? '▼' : '▶'}</span>
+                        <span>${completedProjs.length} completed</span>
+                    </div>
+                    <div class="gantt-timeline">
+                        <div class="gantt-today-line" style="left:${todayPct.toFixed(2)}%"></div>
+                    </div>
+                </div>`;
+            if (expanded) {
+                completedProjs.forEach(p => { rows += renderProjectRow(p, today, rangeStart, totalMs, todayPct, rangeEnd); });
+            }
+        }
+    }
 
     Object.values(groups)
         .filter(g => g.projects.length > 0)
-        .forEach(initiative => {
-            // Derive initiative time span from its projects
-            const projDates = initiative.projects
-                .flatMap(p => [p.startDate, p.targetDate].filter(Boolean))
-                .map(d => parseLocalDate(d));
-
-            let initBar = '';
-            if (projDates.length > 0) {
-                const s = toGanttPct(new Date(Math.min(...projDates)), rangeStart, totalMs);
-                const rawEnd = initiative.targetDate
-                    ? parseLocalDate(initiative.targetDate)
-                    : new Date(Math.max(...projDates));
-                const e = toGanttPct(rawEnd, rangeStart, totalMs);
-                const w = Math.max(0.5, e - s);
-                initBar = `<div class="gantt-initiative-bar" style="left:${s.toFixed(2)}%;width:${w.toFixed(2)}%" title="${escapeHtml(initiative.name)}"></div>`;
-            }
-
-            rows += `
-                <div class="gantt-row gantt-initiative-row">
-                    <div class="gantt-label gantt-initiative-label">${escapeHtml(initiative.name)}</div>
-                    <div class="gantt-timeline">
-                        <div class="gantt-today-line" style="left:${todayPct.toFixed(2)}%"></div>
-                        ${initBar}
-                    </div>
-                </div>`;
-
-            initiative.projects.forEach(p => {
-                rows += renderProjectRow(p, today, rangeStart, totalMs, todayPct, rangeEnd);
-            });
-        });
+        .forEach(initiative => renderGroup(initiative.name, initiative.projects));
 
     if (unassigned.length > 0) {
         const hasInitiatives = Object.values(groups).some(g => g.projects.length > 0);
-        if (hasInitiatives) {
-            rows += `
-                <div class="gantt-row gantt-initiative-row">
-                    <div class="gantt-label gantt-initiative-label">Other Projects</div>
-                    <div class="gantt-timeline">
-                        <div class="gantt-today-line" style="left:${todayPct.toFixed(2)}%"></div>
-                    </div>
-                </div>`;
-        }
-        unassigned.forEach(p => {
-            rows += renderProjectRow(p, today, rangeStart, totalMs, todayPct, rangeEnd);
-        });
+        renderGroup(hasInitiatives ? 'Other Projects' : 'Projects', unassigned);
     }
 
-    // Month label header row
+    // Month label header
     let monthLabels = '';
     months.forEach(mo => {
-        const pct = toGanttPct(mo, rangeStart, totalMs);
+        const pct   = toGanttPct(mo, rangeStart, totalMs);
         const label = mo.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
         monthLabels += `<div class="gantt-month-mark" style="left:${pct.toFixed(2)}%">
             <div class="gantt-grid-line"></div>
@@ -265,7 +289,7 @@ function renderGantt() {
     });
 
     container.innerHTML = `
-        <div class="gantt-wrap">
+        <div class="gantt-wrap" style="--gantt-tl-width:${timelineMinWidth}px">
             <div class="gantt-row gantt-header-row">
                 <div class="gantt-label"></div>
                 <div class="gantt-timeline gantt-header-timeline">
@@ -398,6 +422,10 @@ function renderActiveWork() {
     const activeIssues = allIssues
         .filter(i => ['In Progress', 'Active'].includes(i.state.name))
         .sort((a, b) => {
+            // Active before In Progress
+            const statusOrd = { 'Active': 0, 'In Progress': 1 };
+            const so = (statusOrd[a.state.name] ?? 2) - (statusOrd[b.state.name] ?? 2);
+            if (so !== 0) return so;
             const order = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'No priority': 4 };
             const ap = order[a.priorityLabel] ?? 4;
             const bp = order[b.priorityLabel] ?? 4;
@@ -523,6 +551,31 @@ function projectStatusOrder(stateName) {
     if (n.includes('progress') || n.includes('active')) return 0;
     if (n.includes('complet') || n.includes('cancel')) return 2;
     return 1; // backlog, paused, planned, etc.
+}
+
+function isProjectCompleted(project) {
+    const n = (project.status?.name || '').toLowerCase();
+    return n.includes('complet') || n.includes('cancel');
+}
+
+// Snap months to common values if within 12% threshold (used during Ctrl+Scroll zoom)
+function trySnapMonths(months) {
+    for (const snap of [1, 3, 6, 12, 24, 36]) {
+        if (Math.abs(months - snap) / snap < 0.12) return snap;
+    }
+    return months;
+}
+
+// Compute total months spanned by all project data (used as default range)
+function computeDataRangeMonths() {
+    if (allProjects.length === 0) return 12;
+    const dates = allProjects
+        .flatMap(p => [p.startDate, p.targetDate].filter(Boolean))
+        .map(d => parseLocalDate(d));
+    if (dates.length === 0) return 12;
+    const start = new Date(Math.min(...dates));
+    const end   = new Date(Math.max(...dates));
+    return Math.max(1, Math.round((end - start) / (30.44 * 24 * 60 * 60 * 1000)));
 }
 
 // Parse a YYYY-MM-DD date string as local midnight (not UTC midnight).
