@@ -78,8 +78,8 @@ async function fetchProjects() {
                 projects(first: 50, orderBy: updatedAt) {
                     nodes {
                         id name color startDate targetDate url
-                        state { name }
-                        initiative { id name }
+                        status { name }
+                        initiatives { nodes { id name } }
                     }
                 }
             }
@@ -88,7 +88,9 @@ async function fetchProjects() {
         // Build initiative list from project relationships
         const initMap = {};
         allProjects.forEach(p => {
-            if (p.initiative) initMap[p.initiative.id] = p.initiative;
+            (p.initiatives?.nodes || []).forEach(init => {
+                initMap[init.id] = init;
+            });
         });
         allInitiatives = Object.values(initMap);
     } catch (e) {
@@ -102,6 +104,7 @@ function renderDashboard() {
     renderSummaryCards();
     renderUrgentDeadlines();
     renderActiveWork();
+    renderInReview();
     renderBlockedIssues();
     renderMetricsChart();
 }
@@ -160,8 +163,9 @@ function renderGantt() {
     });
 
     allProjects.forEach(project => {
-        const init = project.initiative;
-        if (init) {
+        const inits = project.initiatives?.nodes || [];
+        if (inits.length > 0) {
+            const init = inits[0]; // assign to first initiative
             if (!groups[init.id]) {
                 groups[init.id] = { id: init.id, name: init.name, targetDate: null, projects: [] };
             }
@@ -253,8 +257,8 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct) {
     const start = project.startDate ? parseLocalDate(project.startDate) : null;
     const end   = project.targetDate ? parseLocalDate(project.targetDate) : null;
 
-    const stateName = project.state?.name || '';
-    const stateType = ''; // not requested from API; derive from name
+    const stateName = project.status?.name || '';
+    const stateType = ''; // derive from name only
     const isOverdue = end && end < today
         && !stateName.toLowerCase().includes('complet')
         && !stateName.toLowerCase().includes('cancel');
@@ -356,7 +360,7 @@ function renderUrgentDeadlines() {
 
 function renderActiveWork() {
     const activeIssues = allIssues
-        .filter(i => ['In Progress', 'Active', 'In Review'].includes(i.state.name))
+        .filter(i => ['In Progress', 'Active'].includes(i.state.name))
         .sort((a, b) => {
             const order = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'No priority': 4 };
             const ap = order[a.priorityLabel] ?? 4;
@@ -372,6 +376,17 @@ function renderActiveWork() {
     container.innerHTML = activeIssues.length === 0
         ? '<p class="loading">No active work</p>'
         : activeIssues.map(i => renderIssueItem(i)).join('');
+}
+
+// ─── In Review ─────────────────────────────────────────────────────────────────
+
+function renderInReview() {
+    const inReviewIssues = allIssues.filter(i => i.state.name === 'In Review');
+
+    const container = document.getElementById('in-review');
+    container.innerHTML = inReviewIssues.length === 0
+        ? '<p class="loading">Nothing in review right now</p>'
+        : inReviewIssues.map(i => renderIssueItem(i)).join('');
 }
 
 // ─── Blocked Issues ────────────────────────────────────────────────────────────
