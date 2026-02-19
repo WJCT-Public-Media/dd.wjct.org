@@ -97,7 +97,6 @@ Real-time project status and metrics dashboard for the Digital Media Department.
 
 - [ ] Add Google OAuth authentication
 - [ ] Build backend proxy for API key security
-- [ ] Add export to PDF functionality
 - [ ] Add filtering/search capabilities
 - [ ] Add team member breakdown
 - [ ] Deploy to dd.wjct.org
