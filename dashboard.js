@@ -23,74 +23,76 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 });
 
+// Shared fetch helper — one GraphQL call through the Worker
+async function callWorker(query) {
+    const response = await fetch(CONFIG.WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+    });
+    const result = await response.json();
+    if (result.errors) console.warn('GraphQL errors:', result.errors);
+    return result.data || null;
+}
+
 // Fetch data from Linear API (via Cloudflare Worker proxy)
+// Issues and projects are fetched independently so one failure doesn't blank both.
 async function fetchData() {
+    await Promise.all([fetchIssues(), fetchProjects()]);
+
+    lastUpdate = new Date();
+    document.getElementById('last-updated').textContent =
+        `Updated: ${lastUpdate.toLocaleTimeString()}`;
+}
+
+async function fetchIssues() {
     try {
-        const response = await fetch(CONFIG.WORKER_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                query: `
-                    query DepartmentDashboard {
-                        issues(
-                            first: 250
-                            filter: { team: { id: { eq: "${CONFIG.TEAM_ID}" } } }
-                            orderBy: updatedAt
-                        ) {
-                            nodes {
-                                id
-                                identifier
-                                title
-                                state { name type }
-                                priority
-                                priorityLabel
-                                dueDate
-                                project { id name }
-                                url
-                                assignee { name }
-                            }
-                        }
-                        projects(first: 50, orderBy: updatedAt) {
-                            nodes {
-                                id
-                                name
-                                color
-                                startDate
-                                targetDate
-                                url
-                                state { name type }
-                                progress
-                                initiative { id name }
-                            }
-                        }
-                        initiatives(first: 20) {
-                            nodes {
-                                id
-                                name
-                                targetDate
-                            }
-                        }
+        const data = await callWorker(`
+            query {
+                issues(
+                    first: 250
+                    filter: { team: { id: { eq: "${CONFIG.TEAM_ID}" } } }
+                    orderBy: updatedAt
+                ) {
+                    nodes {
+                        id identifier title
+                        state { name type }
+                        priority priorityLabel dueDate
+                        project { id name }
+                        url
+                        assignee { name }
                     }
-                `
-            })
+                }
+            }
+        `);
+        allIssues = data?.issues?.nodes || [];
+    } catch (e) {
+        console.error('Issues fetch failed:', e);
+    }
+}
+
+async function fetchProjects() {
+    try {
+        const data = await callWorker(`
+            query {
+                projects(first: 50, orderBy: updatedAt) {
+                    nodes {
+                        id name color startDate targetDate url
+                        state { name }
+                        initiative { id name }
+                    }
+                }
+            }
+        `);
+        allProjects = data?.projects?.nodes || [];
+        // Build initiative list from project relationships
+        const initMap = {};
+        allProjects.forEach(p => {
+            if (p.initiative) initMap[p.initiative.id] = p.initiative;
         });
-
-        const data = await response.json();
-
-        if (data.errors) {
-            console.error('Linear API errors:', data.errors);
-        }
-
-        allIssues     = data.data?.issues?.nodes     || [];
-        allProjects   = data.data?.projects?.nodes   || [];
-        allInitiatives = data.data?.initiatives?.nodes || [];
-        lastUpdate = new Date();
-
-        document.getElementById('last-updated').textContent =
-            `Updated: ${lastUpdate.toLocaleTimeString()}`;
-
-    } catch (error) {
-        console.error('Error fetching data:', error);
+        allInitiatives = Object.values(initMap);
+    } catch (e) {
+        console.error('Projects fetch failed:', e);
     }
 }
 
@@ -120,7 +122,7 @@ function renderGantt() {
     // Calculate date range from all project start/end dates
     const allDates = allProjects
         .flatMap(p => [p.startDate, p.targetDate].filter(Boolean))
-        .map(d => new Date(d));
+        .map(d => parseLocalDate(d));
 
     let rangeStart, rangeEnd;
     if (allDates.length > 0) {
@@ -178,13 +180,13 @@ function renderGantt() {
             // Derive initiative time span from its projects
             const projDates = initiative.projects
                 .flatMap(p => [p.startDate, p.targetDate].filter(Boolean))
-                .map(d => new Date(d));
+                .map(d => parseLocalDate(d));
 
             let initBar = '';
             if (projDates.length > 0) {
                 const s = toGanttPct(new Date(Math.min(...projDates)), rangeStart, totalMs);
                 const rawEnd = initiative.targetDate
-                    ? new Date(initiative.targetDate)
+                    ? parseLocalDate(initiative.targetDate)
                     : new Date(Math.max(...projDates));
                 const e = toGanttPct(rawEnd, rangeStart, totalMs);
                 const w = Math.max(0.5, e - s);
@@ -248,13 +250,12 @@ function renderGantt() {
 }
 
 function renderProjectRow(project, today, rangeStart, totalMs, todayPct) {
-    const start = project.startDate ? new Date(project.startDate) : null;
-    const end   = project.targetDate ? new Date(project.targetDate) : null;
+    const start = project.startDate ? parseLocalDate(project.startDate) : null;
+    const end   = project.targetDate ? parseLocalDate(project.targetDate) : null;
 
     const stateName = project.state?.name || '';
-    const stateType = project.state?.type || '';
+    const stateType = ''; // not requested from API; derive from name
     const isOverdue = end && end < today
-        && !['completed', 'cancelled'].includes(stateType)
         && !stateName.toLowerCase().includes('complet')
         && !stateName.toLowerCase().includes('cancel');
 
@@ -297,22 +298,20 @@ function toGanttPct(date, rangeStart, totalMs) {
 
 function ganttBarClass(type, name, isOverdue) {
     if (isOverdue) return 'bar-overdue';
-    const t = type.toLowerCase();
-    const n = name.toLowerCase();
-    if (t === 'completed' || n.includes('complet')) return 'bar-completed';
-    if (t === 'cancelled' || n.includes('cancel'))  return 'bar-cancelled';
-    if (t === 'inprogress' || t === 'started' || n.includes('progress')) return 'bar-active';
-    if (t === 'paused' || n.includes('hold') || n.includes('pause'))     return 'bar-paused';
+    const n = (name + ' ' + type).toLowerCase();
+    if (n.includes('complet')) return 'bar-completed';
+    if (n.includes('cancel'))  return 'bar-cancelled';
+    if (n.includes('progress') || n.includes('active') || n.includes('started') || n.includes('inprogress')) return 'bar-active';
+    if (n.includes('hold') || n.includes('pause'))     return 'bar-paused';
     return 'bar-backlog';
 }
 
 function ganttPillClass(type, name, isOverdue) {
     if (isOverdue) return 'pill-overdue';
-    const t = type.toLowerCase();
-    const n = name.toLowerCase();
-    if (t === 'completed' || n.includes('complet')) return 'pill-completed';
-    if (t === 'cancelled' || n.includes('cancel'))  return 'pill-cancelled';
-    if (t === 'inprogress' || t === 'started' || n.includes('progress')) return 'pill-active';
+    const n = (name + ' ' + type).toLowerCase();
+    if (n.includes('complet')) return 'pill-completed';
+    if (n.includes('cancel'))  return 'pill-cancelled';
+    if (n.includes('progress') || n.includes('active') || n.includes('started') || n.includes('inprogress')) return 'pill-active';
     return 'pill-default';
 }
 
@@ -343,9 +342,9 @@ function renderUrgentDeadlines() {
         .filter(i => {
             if (!i.dueDate) return false;
             if (['Done', 'Canceled', 'Duplicate'].includes(i.state.name)) return false;
-            return new Date(i.dueDate) <= sevenDays;
+            return parseLocalDate(i.dueDate) <= sevenDays;
         })
-        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+        .sort((a, b) => parseLocalDate(a.dueDate) - parseLocalDate(b.dueDate));
 
     const container = document.getElementById('urgent-deadlines');
     container.innerHTML = urgentDeadlines.length === 0
@@ -365,7 +364,7 @@ function renderActiveWork() {
             if (ap !== bp) return ap - bp;
             if (a.dueDate && !b.dueDate) return -1;
             if (!a.dueDate && b.dueDate) return 1;
-            if (a.dueDate && b.dueDate) return new Date(a.dueDate) - new Date(b.dueDate);
+            if (a.dueDate && b.dueDate) return parseLocalDate(a.dueDate) - parseLocalDate(b.dueDate);
             return 0;
         });
 
@@ -467,8 +466,17 @@ function renderMetricsChart() {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
+// Parse a YYYY-MM-DD date string as local midnight (not UTC midnight).
+// JS treats bare date strings as UTC, which shifts the displayed date by one day
+// for timezones behind UTC (e.g., US Eastern).
+function parseLocalDate(str) {
+    if (!str) return null;
+    const [y, m, d] = str.split('-').map(Number);
+    return new Date(y, m - 1, d);
+}
+
 function formatDate(dateString) {
-    const date  = new Date(dateString);
+    const date  = parseLocalDate(dateString);
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
