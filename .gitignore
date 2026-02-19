@@ -1,0 +1,20 @@
+# Local development files
+config-local.js
+config.local.js
+
+# Claude Code
+.claude/
+.DS_Store
+
+# Don't commit config.js if it contains real API key
+# config.js
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log

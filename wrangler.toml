@@ -1,0 +1,15 @@
+name = "dd-wjct-linear-proxy"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+# Worker URL:
+# https://dd-wjct-linear-proxy.wjct.workers.dev
+#
+# To deploy:
+#   npx wrangler deploy
+#
+# To set the API key secret (run once, never stored in code):
+#   npx wrangler secret put LINEAR_API_KEY
+#
+# To test locally:
+#   npx wrangler dev

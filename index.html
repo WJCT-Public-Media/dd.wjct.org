@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Media Department Dashboard - WJCT</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1>Digital Media Department</h1>
+                <p class="subtitle">Real-time Project Status & Metrics</p>
+            </div>
+            <div class="header-meta">
+                <span id="last-updated">Loading...</span>
+                <button id="refresh-btn" class="btn-refresh">↻ Refresh</button>
+            </div>
+        </header>
+
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+            <div class="card card-urgent">
+                <div class="card-icon">🚨</div>
+                <div class="card-content">
+                    <h3 id="urgent-count">-</h3>
+                    <p>Urgent Issues</p>
+                </div>
+            </div>
+            <div class="card card-active">
+                <div class="card-icon">🔥</div>
+                <div class="card-content">
+                    <h3 id="active-count">-</h3>
+                    <p>In Progress</p>
+                </div>
+            </div>
+            <div class="card card-blocked">
+                <div class="card-icon">🚧</div>
+                <div class="card-content">
+                    <h3 id="blocked-count">-</h3>
+                    <p>Blocked</p>
+                </div>
+            </div>
+            <div class="card card-done">
+                <div class="card-icon">✅</div>
+                <div class="card-content">
+                    <h3 id="done-count">-</h3>
+                    <p>Completed</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Urgent Deadlines -->
+        <section class="section">
+            <h2>🚨 Urgent Deadlines (Next 7 Days)</h2>
+            <div id="urgent-deadlines" class="issue-list">
+                <p class="loading">Loading urgent deadlines...</p>
+            </div>
+        </section>
+
+        <!-- Active Work -->
+        <section class="section">
+            <h2>🔥 Active Work</h2>
+            <div id="active-work" class="issue-list">
+                <p class="loading">Loading active work...</p>
+            </div>
+        </section>
+
+        <!-- Blocked Issues -->
+        <section class="section">
+            <h2>🚧 Blocked Issues</h2>
+            <div id="blocked-issues" class="issue-list">
+                <p class="loading">Loading blocked issues...</p>
+            </div>
+        </section>
+
+        <!-- Projects Overview -->
+        <section class="section">
+            <h2>📊 Projects Overview</h2>
+            <div id="projects-overview" class="projects-grid">
+                <p class="loading">Loading projects...</p>
+            </div>
+        </section>
+
+        <!-- Metrics Chart -->
+        <section class="section">
+            <h2>📈 Department Metrics</h2>
+            <div class="chart-container">
+                <canvas id="metrics-chart"></canvas>
+            </div>
+        </section>
+
+        <footer>
+            <p>WJCT Digital Media Department • Data from Linear • Auto-refreshes every 10 minutes</p>
+        </footer>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="dashboard.js"></script>
+</body>
+</html>
