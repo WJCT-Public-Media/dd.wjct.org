@@ -1,6 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" rx="14" fill="#0066cc"/>
-  <text x="50" y="34" font-family="'Courier New', Courier, monospace" font-size="36" font-weight="700" fill="white" text-anchor="middle" dominant-baseline="middle">10</text>
-  <line x1="14" y1="51" x2="86" y2="51" stroke="white" stroke-width="1.5" stroke-opacity="0.3"/>
-  <text x="50" y="69" font-family="'Courier New', Courier, monospace" font-size="36" font-weight="700" fill="white" text-anchor="middle" dominant-baseline="middle">01</text>
+  <rect width="100" height="100" rx="8" fill="white"/>
+  <text x="50" y="48" font-family="Courier, 'Courier New', monospace" font-size="64" font-weight="900" fill="#111827" stroke="#111827" stroke-width="2" stroke-linejoin="round" paint-order="stroke" text-anchor="middle">10</text>
+  <text x="50" y="95" font-family="Courier, 'Courier New', monospace" font-size="64" font-weight="900" fill="#111827" stroke="#111827" stroke-width="2" stroke-linejoin="round" paint-order="stroke" text-anchor="middle">01</text>
 </svg>
