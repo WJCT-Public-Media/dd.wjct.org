@@ -341,7 +341,7 @@ function setupGanttResizer() {
 
         const onMove = e => {
             const dx = e.clientX - startX;
-            ganttLabelWidth = Math.max(120, Math.min(520, startWidth + dx));
+            ganttLabelWidth = Math.max(120, Math.min(1000, startWidth + dx));
             document.documentElement.style.setProperty('--gantt-label-width', ganttLabelWidth + 'px');
             resizer.style.left = ganttLabelWidth + 'px';
         };
