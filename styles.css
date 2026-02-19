@@ -10,6 +10,7 @@
     --text: #212529;
     --text-light: #6c757d;
     --border: #dee2e6;
+    --gantt-label-width: 240px;
 }
 
 * {
@@ -256,7 +257,8 @@ footer {
 
 /* Fixed-width label column — sticky so it stays visible when timeline scrolls */
 .gantt-label {
-    flex: 0 0 240px;
+    flex: 0 0 auto;
+    width: var(--gantt-label-width, 240px);
     min-width: 0;
     padding: 6px 12px;
     font-size: 13px;
@@ -481,6 +483,43 @@ footer {
     border-radius: 2px;
 }
 
+/* Gantt chart container — needed for absolute resizer positioning */
+#gantt-chart {
+    position: relative;
+}
+
+/* Draggable column-resize handle between label and timeline */
+.gantt-label-resizer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 9px;
+    transform: translateX(-50%);
+    cursor: col-resize;
+    z-index: 25;
+    user-select: none;
+}
+
+.gantt-label-resizer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 1px;
+    height: 100%;
+    background: var(--border);
+    transition: width 0.1s, background 0.1s;
+    pointer-events: none;
+}
+
+.gantt-label-resizer:hover::after,
+.gantt-label-resizer.is-dragging::after {
+    width: 3px;
+    background: var(--primary);
+    opacity: 0.5;
+}
+
 /* ─── Full-width Gantt section ────────────────────────────────────────────── */
 
 .section-full {
@@ -697,7 +736,7 @@ footer {
     }
 
     .gantt-label {
-        flex: 0 0 160px;
+        width: 160px;
         font-size: 12px;
     }
 }

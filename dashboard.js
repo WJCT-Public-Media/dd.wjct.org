@@ -5,6 +5,7 @@ let allInitiatives = [];
 let metricsChartInstance = null;
 let lastUpdate = null;
 let ganttRangeMonths = null; // null = span all data automatically
+let ganttLabelWidth = 240;   // px — updated by drag, persists across re-renders
 const expandedAccordions = new Set();
 
 // Accordion toggle — called from inline onclick in Gantt HTML
@@ -317,6 +318,45 @@ function renderGantt() {
             </div>
             ${rows}
         </div>`;
+
+    setupGanttResizer();
+}
+
+function setupGanttResizer() {
+    const container = document.getElementById('gantt-chart');
+    if (!container) return;
+
+    const resizer = document.createElement('div');
+    resizer.className = 'gantt-label-resizer';
+    resizer.style.left = ganttLabelWidth + 'px';
+    container.appendChild(resizer);
+
+    resizer.addEventListener('mousedown', e => {
+        e.preventDefault();
+        const startX = e.clientX;
+        const startWidth = ganttLabelWidth;
+        resizer.classList.add('is-dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+
+        const onMove = e => {
+            const dx = e.clientX - startX;
+            ganttLabelWidth = Math.max(120, Math.min(520, startWidth + dx));
+            document.documentElement.style.setProperty('--gantt-label-width', ganttLabelWidth + 'px');
+            resizer.style.left = ganttLabelWidth + 'px';
+        };
+
+        const onUp = () => {
+            resizer.classList.remove('is-dragging');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        };
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
 }
 
 function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEnd) {
