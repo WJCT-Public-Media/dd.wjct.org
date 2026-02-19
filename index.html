@@ -20,15 +20,26 @@
                 <button id="refresh-btn" class="btn-refresh">↻ Refresh</button>
             </div>
         </header>
+    </div>
 
-        <!-- Initiatives & Projects Gantt -->
-        <section class="section">
+    <!-- Initiatives & Projects Gantt — full width -->
+    <section class="section-full">
+        <div class="gantt-inner-header">
             <h2>📅 Initiatives &amp; Projects</h2>
-            <div id="gantt-chart">
-                <p class="loading">Loading projects...</p>
+            <div class="gantt-scale-controls" id="gantt-scale-controls">
+                <span class="gantt-scale-label">View:</span>
+                <button class="gantt-scale-btn" data-scale="3mo">3 mo</button>
+                <button class="gantt-scale-btn" data-scale="6mo">6 mo</button>
+                <button class="gantt-scale-btn" data-scale="1yr">1 yr</button>
+                <button class="gantt-scale-btn active" data-scale="all">All</button>
             </div>
-        </section>
+        </div>
+        <div id="gantt-chart">
+            <p class="loading">Loading projects...</p>
+        </div>
+    </section>
 
+    <div class="container">
         <!-- Summary Cards -->
         <div class="summary-cards">
             <div class="card card-urgent">
@@ -57,6 +68,13 @@
                 <div class="card-content">
                     <h3 id="done-count">-</h3>
                     <p>Completed</p>
+                </div>
+            </div>
+            <div class="card card-review">
+                <div class="card-icon">👀</div>
+                <div class="card-content">
+                    <h3 id="review-count">-</h3>
+                    <p>In Review</p>
                 </div>
             </div>
         </div>

@@ -4,6 +4,7 @@
     --active: #fd7e14;
     --blocked: #6c757d;
     --done: #28a745;
+    --review: #0c8ea4;
     --bg: #f8f9fa;
     --card-bg: #ffffff;
     --text: #212529;
@@ -120,10 +121,11 @@ header h1 {
     font-size: 14px;
 }
 
-.card-urgent { border-left: 4px solid var(--urgent); }
+.card-urgent  { border-left: 4px solid var(--urgent); }
 .card-active  { border-left: 4px solid var(--active); }
 .card-blocked { border-left: 4px solid var(--blocked); }
 .card-done    { border-left: 4px solid var(--done); }
+.card-review  { border-left: 4px solid var(--review); }
 
 /* Section */
 .section {
@@ -248,13 +250,14 @@ footer {
 /* Outer wrapper scrolls horizontally on small screens */
 .gantt-wrap {
     overflow-x: auto;
+    padding: 0 20px 12px;
 }
 
 .gantt-row {
     display: flex;
     align-items: stretch;
     border-bottom: 1px solid #f0f2f4;
-    min-height: 36px;
+    min-height: 54px;
 }
 
 /* Fixed-width label column */
@@ -399,7 +402,7 @@ footer {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    height: 22px;
+    height: 33px;
     border-radius: 4px;
     min-width: 4px;
     z-index: 10;
@@ -476,6 +479,71 @@ footer {
     width: 14px;
     height: 10px;
     border-radius: 2px;
+}
+
+/* ─── Full-width Gantt section ────────────────────────────────────────────── */
+
+.section-full {
+    background: var(--card-bg);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    padding-top: 25px;
+    padding-bottom: 20px;
+}
+
+.gantt-inner-header {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.gantt-inner-header h2 {
+    font-size: 20px;
+    color: var(--text);
+}
+
+/* Scale controls */
+.gantt-scale-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.gantt-scale-label {
+    font-size: 13px;
+    color: var(--text-light);
+    margin-right: 2px;
+}
+
+.gantt-scale-btn {
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: white;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.gantt-scale-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.gantt-scale-btn:hover:not(.active) {
+    background: var(--bg);
+    border-color: var(--primary);
+}
+
+/* Fade right edge for bars with no end date */
+.gantt-bar-fade-end {
+    -webkit-mask-image: linear-gradient(to right, black 50%, transparent 100%);
+    mask-image: linear-gradient(to right, black 50%, transparent 100%);
 }
 
 /* Responsive */

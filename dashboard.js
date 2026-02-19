@@ -4,6 +4,7 @@ let allProjects = [];
 let allInitiatives = [];
 let metricsChartInstance = null;
 let lastUpdate = null;
+let ganttScale = 'all';
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', async () => {
@@ -20,6 +21,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('refresh-btn').addEventListener('click', async () => {
         await fetchData();
         renderDashboard();
+    });
+
+    // Gantt scale controls
+    document.querySelectorAll('.gantt-scale-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            ganttScale = btn.dataset.scale;
+            document.querySelectorAll('.gantt-scale-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderGantt();
+        });
     });
 });
 
@@ -128,15 +139,20 @@ function renderGantt() {
         .map(d => parseLocalDate(d));
 
     let rangeStart, rangeEnd;
-    if (allDates.length > 0) {
-        const minDate = new Date(Math.min(...allDates));
-        const maxDate = new Date(Math.max(...allDates));
-        // Snap to month boundaries
-        rangeStart = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
-        rangeEnd   = new Date(maxDate.getFullYear(), maxDate.getMonth() + 2, 0);
+    if (ganttScale === 'all') {
+        if (allDates.length > 0) {
+            const minDate = new Date(Math.min(...allDates));
+            const maxDate = new Date(Math.max(...allDates));
+            rangeStart = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+            rangeEnd   = new Date(maxDate.getFullYear(), maxDate.getMonth() + 2, 0);
+        } else {
+            rangeStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            rangeEnd   = new Date(today.getFullYear(), today.getMonth() + 4, 0);
+        }
     } else {
+        const fwd = { '3mo': 3, '6mo': 6, '1yr': 12 }[ganttScale] || 6;
         rangeStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-        rangeEnd   = new Date(today.getFullYear(), today.getMonth() + 4, 0);
+        rangeEnd   = new Date(today.getFullYear(), today.getMonth() + fwd, 0);
     }
 
     // Ensure today is always visible
@@ -175,6 +191,16 @@ function renderGantt() {
         }
     });
 
+    // Sort projects within each group: In Progress → Backlog/other → Completed
+    Object.values(groups).forEach(g => {
+        g.projects.sort((a, b) =>
+            projectStatusOrder(a.status?.name) - projectStatusOrder(b.status?.name)
+        );
+    });
+    unassigned.sort((a, b) =>
+        projectStatusOrder(a.status?.name) - projectStatusOrder(b.status?.name)
+    );
+
     // Build HTML rows
     let rows = '';
 
@@ -207,7 +233,7 @@ function renderGantt() {
                 </div>`;
 
             initiative.projects.forEach(p => {
-                rows += renderProjectRow(p, today, rangeStart, totalMs, todayPct);
+                rows += renderProjectRow(p, today, rangeStart, totalMs, todayPct, rangeEnd);
             });
         });
 
@@ -223,7 +249,7 @@ function renderGantt() {
                 </div>`;
         }
         unassigned.forEach(p => {
-            rows += renderProjectRow(p, today, rangeStart, totalMs, todayPct);
+            rows += renderProjectRow(p, today, rangeStart, totalMs, todayPct, rangeEnd);
         });
     }
 
@@ -253,7 +279,7 @@ function renderGantt() {
         </div>`;
 }
 
-function renderProjectRow(project, today, rangeStart, totalMs, todayPct) {
+function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEnd) {
     const start = project.startDate ? parseLocalDate(project.startDate) : null;
     const end   = project.targetDate ? parseLocalDate(project.targetDate) : null;
 
@@ -268,10 +294,12 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct) {
     let barHtml = '';
     if (start || end) {
         const s = toGanttPct(start || today, rangeStart, totalMs);
-        const e = toGanttPct(end   || new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000), rangeStart, totalMs);
+        // Bars with no end date extend to the range end with a fade effect
+        const e = toGanttPct(end || rangeEnd, rangeStart, totalMs);
         const w = Math.max(0.5, e - s);
-        const tipDates = `${start ? start.toLocaleDateString() : 'No start'} → ${end ? end.toLocaleDateString() : 'No target'}`;
-        barHtml = `<div class="gantt-bar ${cls}"
+        const fadeClass = !end ? ' gantt-bar-fade-end' : '';
+        const tipDates = `${start ? start.toLocaleDateString() : 'No start'} → ${end ? end.toLocaleDateString() : 'No end date set'}`;
+        barHtml = `<div class="gantt-bar ${cls}${fadeClass}"
             style="left:${s.toFixed(2)}%;width:${w.toFixed(2)}%"
             title="${escapeHtml(project.name + ' · ' + stateName + ' · ' + tipDates)}">
             ${w > 8 ? `<span>${escapeHtml(project.name)}</span>` : ''}
@@ -322,18 +350,26 @@ function ganttPillClass(type, name, isOverdue) {
 // ─── Summary Cards ─────────────────────────────────────────────────────────────
 
 function renderSummaryCards() {
-    const urgent  = allIssues.filter(i =>
-        i.priorityLabel === 'Urgent' &&
-        !['Done', 'Canceled', 'Duplicate'].includes(i.state.name)
-    );
+    const today     = new Date();
+    const sevenDays = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const doneStates = ['Done', 'Canceled', 'Duplicate'];
+
+    // Urgent = issues with a due date within 7 days (matches the Urgent Deadlines section)
+    const urgent  = allIssues.filter(i => {
+        if (!i.dueDate) return false;
+        if (doneStates.includes(i.state.name) || i.state.name === 'In Review') return false;
+        return parseLocalDate(i.dueDate) <= sevenDays;
+    });
     const active  = allIssues.filter(i => ['In Progress', 'Active'].includes(i.state.name));
     const blocked = allIssues.filter(i => i.state.name === 'Blocked');
     const done    = allIssues.filter(i => i.state.name === 'Done');
+    const review  = allIssues.filter(i => i.state.name === 'In Review');
 
     document.getElementById('urgent-count').textContent  = urgent.length;
     document.getElementById('active-count').textContent  = active.length;
     document.getElementById('blocked-count').textContent = blocked.length;
     document.getElementById('done-count').textContent    = done.length;
+    document.getElementById('review-count').textContent  = review.length;
 }
 
 // ─── Urgent Deadlines ──────────────────────────────────────────────────────────
@@ -345,7 +381,7 @@ function renderUrgentDeadlines() {
     const urgentDeadlines = allIssues
         .filter(i => {
             if (!i.dueDate) return false;
-            if (['Done', 'Canceled', 'Duplicate'].includes(i.state.name)) return false;
+            if (['Done', 'Canceled', 'Duplicate', 'In Review'].includes(i.state.name)) return false;
             return parseLocalDate(i.dueDate) <= sevenDays;
         })
         .sort((a, b) => parseLocalDate(a.dueDate) - parseLocalDate(b.dueDate));
@@ -480,6 +516,14 @@ function renderMetricsChart() {
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
+
+// Sort order for project status: In Progress first, then Backlog/other, then Completed/Cancelled
+function projectStatusOrder(stateName) {
+    const n = (stateName || '').toLowerCase();
+    if (n.includes('progress') || n.includes('active')) return 0;
+    if (n.includes('complet') || n.includes('cancel')) return 2;
+    return 1; // backlog, paused, planned, etc.
+}
 
 // Parse a YYYY-MM-DD date string as local midnight (not UTC midnight).
 // JS treats bare date strings as UTC, which shifts the displayed date by one day
