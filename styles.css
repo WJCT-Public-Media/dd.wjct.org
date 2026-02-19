@@ -121,9 +121,9 @@ header h1 {
 }
 
 .card-urgent { border-left: 4px solid var(--urgent); }
-.card-active { border-left: 4px solid var(--active); }
+.card-active  { border-left: 4px solid var(--active); }
 .card-blocked { border-left: 4px solid var(--blocked); }
-.card-done { border-left: 4px solid var(--done); }
+.card-done    { border-left: 4px solid var(--done); }
 
 /* Section */
 .section {
@@ -185,6 +185,7 @@ header h1 {
     gap: 15px;
     font-size: 13px;
     color: var(--text-light);
+    flex-wrap: wrap;
 }
 
 .issue-meta span {
@@ -194,7 +195,7 @@ header h1 {
 }
 
 .priority-urgent { color: var(--urgent); font-weight: 600; }
-.priority-high { color: var(--active); font-weight: 600; }
+.priority-high   { color: var(--active); font-weight: 600; }
 
 .due-soon {
     background: #fff3cd;
@@ -210,45 +211,13 @@ header h1 {
     border-radius: 12px;
     font-size: 12px;
     font-weight: 600;
+    white-space: nowrap;
 }
 
-.status-active { background: #fff3cd; color: #856404; }
-.status-blocked { background: #f8d7da; color: #721c24; }
-.status-review { background: #d1ecf1; color: #0c5460; }
-
-/* Projects Grid */
-.projects-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 15px;
-}
-
-.project-card {
-    background: var(--bg);
-    padding: 15px;
-    border-radius: 8px;
-    border-top: 3px solid var(--primary);
-}
-
-.project-name {
-    font-weight: 600;
-    font-size: 15px;
-    margin-bottom: 10px;
-}
-
-.project-stats {
-    display: flex;
-    gap: 15px;
-    font-size: 13px;
-}
-
-.project-stats span {
-    color: var(--text-light);
-}
-
-.project-stats strong {
-    color: var(--text);
-}
+.status-active      { background: #fff3cd; color: #856404; }
+.status-blocked     { background: #f8d7da; color: #721c24; }
+.status-in-review   { background: #d1ecf1; color: #0c5460; }
+.status-in-progress { background: #cce5ff; color: #004085; }
 
 /* Chart */
 .chart-container {
@@ -274,6 +243,241 @@ footer {
     margin-top: 30px;
 }
 
+/* ─── Gantt Chart ─────────────────────────────────────────────────────────── */
+
+/* Outer wrapper scrolls horizontally on small screens */
+.gantt-wrap {
+    overflow-x: auto;
+}
+
+.gantt-row {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid #f0f2f4;
+    min-height: 36px;
+}
+
+/* Fixed-width label column */
+.gantt-label {
+    flex: 0 0 240px;
+    min-width: 0;
+    padding: 6px 12px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.gantt-label a {
+    color: var(--text);
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gantt-label a:hover {
+    color: var(--primary);
+    text-decoration: underline;
+}
+
+.gantt-indent {
+    color: var(--text-light);
+    flex-shrink: 0;
+}
+
+/* Flexible timeline column */
+.gantt-timeline {
+    flex: 1;
+    position: relative;
+    min-width: 700px;
+    min-height: 36px;
+}
+
+/* Header row: taller to fit month labels */
+.gantt-header-row {
+    border-bottom: 2px solid var(--border);
+}
+
+.gantt-header-timeline {
+    min-height: 44px;
+}
+
+/* Month grid markers (in header only) */
+.gantt-month-mark {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.gantt-grid-line {
+    position: absolute;
+    top: 0;
+    bottom: -9999px; /* extend through all rows */
+    width: 1px;
+    background: #e9ecef;
+    pointer-events: none;
+}
+
+.gantt-month-label {
+    position: absolute;
+    top: 4px;
+    font-size: 11px;
+    color: var(--text-light);
+    white-space: nowrap;
+    padding-left: 4px;
+    user-select: none;
+}
+
+/* Today vertical line */
+.gantt-today-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: rgba(220, 53, 69, 0.35);
+    pointer-events: none;
+    z-index: 5;
+}
+
+.gantt-today-header {
+    background: rgba(220, 53, 69, 0.6);
+}
+
+.gantt-today-label {
+    position: absolute;
+    top: 26px;
+    left: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--urgent);
+    white-space: nowrap;
+}
+
+/* Initiative rows */
+.gantt-initiative-row {
+    background: #f8f9fb;
+}
+
+.gantt-initiative-row + .gantt-initiative-row {
+    margin-top: 4px;
+}
+
+.gantt-initiative-label {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--primary);
+}
+
+/* Thin initiative span bar */
+.gantt-initiative-bar {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 6px;
+    border-radius: 3px;
+    background: var(--primary);
+    opacity: 0.4;
+    min-width: 4px;
+    z-index: 4;
+}
+
+/* Project rows */
+.gantt-project-row {
+    background: white;
+}
+
+.gantt-project-row:hover {
+    background: #f5f8ff;
+}
+
+/* Project bars */
+.gantt-bar {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 22px;
+    border-radius: 4px;
+    min-width: 4px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    padding: 0 7px;
+    overflow: hidden;
+    cursor: default;
+}
+
+.gantt-bar span {
+    font-size: 11px;
+    font-weight: 500;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bar-active    { background: #3b82f6; }
+.bar-completed { background: #22c55e; }
+.bar-cancelled { background: #9ca3af; }
+.bar-paused    { background: #f59e0b; }
+.bar-backlog   { background: #93c5fd; }
+.bar-overdue   { background: var(--urgent); }
+
+/* No-dates placeholder */
+.gantt-no-date {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 10px;
+    font-size: 11px;
+    color: #adb5bd;
+    font-style: italic;
+}
+
+/* Status pills (project label area) */
+.gantt-pill {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.pill-active    { background: #dbeafe; color: #1d4ed8; }
+.pill-completed { background: #dcfce7; color: #166534; }
+.pill-cancelled { background: #f3f4f6; color: #6b7280; }
+.pill-overdue   { background: #fee2e2; color: #991b1b; }
+.pill-default   { background: #e0eaff; color: #3b4fc8; }
+
+/* Gantt legend */
+.gantt-legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-light);
+}
+
+.gantt-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.gantt-legend-swatch {
+    width: 14px;
+    height: 10px;
+    border-radius: 2px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     header {
@@ -281,17 +485,18 @@ footer {
         gap: 15px;
         text-align: center;
     }
-    
+
     .summary-cards {
         grid-template-columns: 1fr;
     }
-    
+
     .issue-header {
         flex-direction: column;
         gap: 5px;
     }
-    
-    .projects-grid {
-        grid-template-columns: 1fr;
+
+    .gantt-label {
+        flex: 0 0 160px;
+        font-size: 12px;
     }
 }
