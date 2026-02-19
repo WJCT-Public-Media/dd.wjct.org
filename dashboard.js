@@ -14,6 +14,22 @@ function toggleAccordion(key) {
     renderGantt();
 }
 
+// Project issue accordion — called from inline onclick on project rows
+const expandedProjects = new Set();
+function toggleProject(id) {
+    if (expandedProjects.has(id)) expandedProjects.delete(id);
+    else expandedProjects.add(id);
+    renderGantt();
+}
+
+// Completed-issues accordion inside a project expansion
+const expandedProjectCompleted = new Set();
+function toggleProjectCompleted(id) {
+    if (expandedProjectCompleted.has(id)) expandedProjectCompleted.delete(id);
+    else expandedProjectCompleted.add(id);
+    renderGantt();
+}
+
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', async () => {
     await fetchData();
@@ -308,17 +324,15 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEn
     const end   = project.targetDate ? parseLocalDate(project.targetDate) : null;
 
     const stateName = project.status?.name || '';
-    const stateType = ''; // derive from name only
     const isOverdue = end && end < today
         && !stateName.toLowerCase().includes('complet')
         && !stateName.toLowerCase().includes('cancel');
 
-    const cls = ganttBarClass(stateType, stateName, isOverdue);
+    const cls = ganttBarClass('', stateName, isOverdue);
 
     let barHtml = '';
     if (start || end) {
         const s = toGanttPct(start || today, rangeStart, totalMs);
-        // Bars with no end date extend to the range end with a fade effect
         const e = toGanttPct(end || rangeEnd, rangeStart, totalMs);
         const w = Math.max(0.5, e - s);
         const fadeClass = !end ? ' gantt-bar-fade-end' : '';
@@ -332,13 +346,42 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEn
         barHtml = `<span class="gantt-no-date">No dates set</span>`;
     }
 
-    const pillClass = ganttPillClass(stateType, stateName, isOverdue);
+    const pillClass = ganttPillClass('', stateName, isOverdue);
 
-    return `
-        <div class="gantt-row gantt-project-row">
+    // Issues belonging to this project, sorted by status then due date
+    const projectIssues = allIssues
+        .filter(i => i.project?.id === project.id)
+        .sort((a, b) => {
+            const ord = { 'Active': 0, 'In Progress': 1, 'Blocked': 2, 'In Review': 3,
+                          'Todo': 4, 'Backlog': 5, 'Done': 6, 'Canceled': 7, 'Duplicate': 8 };
+            const ao = ord[a.state?.name] ?? 5;
+            const bo = ord[b.state?.name] ?? 5;
+            if (ao !== bo) return ao - bo;
+            if (a.dueDate && !b.dueDate) return -1;
+            if (!a.dueDate && b.dueDate) return 1;
+            if (a.dueDate && b.dueDate) return parseLocalDate(a.dueDate) - parseLocalDate(b.dueDate);
+            return 0;
+        });
+
+    const hasIssues  = projectIssues.length > 0;
+    const isExpanded = expandedProjects.has(project.id);
+
+    const expandIcon = hasIssues
+        ? `<span class="gantt-project-expand-icon">${isExpanded ? '▼' : '▶'}</span>`
+        : `<span class="gantt-project-expand-icon gantt-project-expand-empty"></span>`;
+
+    const rowAttrs = hasIssues
+        ? ` class="gantt-row gantt-project-row gantt-project-expandable" onclick="toggleProject('${project.id}')"`
+        : ` class="gantt-row gantt-project-row"`;
+
+    const linkAttrs = hasIssues ? ' onclick="event.stopPropagation()"' : '';
+
+    let html = `
+        <div${rowAttrs}>
             <div class="gantt-label">
                 <span class="gantt-indent">↳</span>
-                <a href="${project.url}" target="_blank" title="${escapeHtml(project.name)}">${escapeHtml(project.name)}</a>
+                ${expandIcon}
+                <a href="${project.url}" target="_blank"${linkAttrs} title="${escapeHtml(project.name)}">${escapeHtml(project.name)}</a>
                 <span class="gantt-pill ${pillClass}">${escapeHtml(stateName || 'Unknown')}</span>
             </div>
             <div class="gantt-timeline">
@@ -346,6 +389,92 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEn
                 ${barHtml}
             </div>
         </div>`;
+
+    if (isExpanded) {
+        const doneStates = ['Done', 'Canceled', 'Duplicate'];
+        const activeIssues    = projectIssues.filter(i => !doneStates.includes(i.state?.name));
+        const completedIssues = projectIssues.filter(i =>  doneStates.includes(i.state?.name));
+
+        activeIssues.forEach(issue => {
+            html += renderIssueGanttRow(issue, rangeStart, totalMs, todayPct);
+        });
+
+        if (completedIssues.length > 0) {
+            const compExpanded = expandedProjectCompleted.has(project.id);
+            html += `
+        <div class="gantt-row gantt-issue-accordion-row" onclick="event.stopPropagation(); toggleProjectCompleted('${project.id}')">
+            <div class="gantt-label gantt-issue-label">
+                <span class="gantt-issue-indent">↳</span>
+                <span class="gantt-accordion-icon">${compExpanded ? '▼' : '▶'}</span>
+                <span>${completedIssues.length} completed</span>
+            </div>
+            <div class="gantt-timeline">
+                <div class="gantt-today-line" style="left:${todayPct.toFixed(2)}%"></div>
+            </div>
+        </div>`;
+            if (compExpanded) {
+                completedIssues.forEach(issue => {
+                    html += renderIssueGanttRow(issue, rangeStart, totalMs, todayPct);
+                });
+            }
+        }
+    }
+
+    return html;
+}
+
+function renderIssueGanttRow(issue, rangeStart, totalMs, todayPct) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const dueDate   = issue.dueDate ? parseLocalDate(issue.dueDate) : null;
+    const stateName = issue.state?.name || '';
+    const isOverdue = dueDate && dueDate < today
+        && !['Done', 'Canceled', 'Duplicate'].includes(stateName);
+
+    let timelineContent = '';
+    if (dueDate) {
+        const pct      = toGanttPct(dueDate, rangeStart, totalMs);
+        const dotClass = ganttIssueDotClass(stateName, isOverdue);
+        const tipText  = `${issue.identifier}: ${issue.title} · Due ${dueDate.toLocaleDateString()}`;
+        timelineContent = `<div class="gantt-issue-dot ${dotClass}" style="left:${pct.toFixed(2)}%" title="${escapeHtml(tipText)}"></div>`;
+    }
+
+    const pillClass = ganttIssuePillClass(stateName, isOverdue);
+
+    return `
+        <div class="gantt-row gantt-issue-row">
+            <div class="gantt-label gantt-issue-label">
+                <span class="gantt-issue-indent">↳</span>
+                <a href="${issue.url}" target="_blank" class="gantt-issue-id">${escapeHtml(issue.identifier)}</a>
+                <span class="gantt-issue-title" title="${escapeHtml(issue.title)}">${escapeHtml(issue.title)}</span>
+                <span class="gantt-pill ${pillClass}">${escapeHtml(stateName)}</span>
+            </div>
+            <div class="gantt-timeline">
+                <div class="gantt-today-line" style="left:${todayPct.toFixed(2)}%"></div>
+                ${timelineContent}
+            </div>
+        </div>`;
+}
+
+function ganttIssueDotClass(stateName, isOverdue) {
+    if (isOverdue) return 'issue-dot-overdue';
+    const n = stateName.toLowerCase();
+    if (n.includes('done') || n.includes('complet') || n.includes('cancel')) return 'issue-dot-done';
+    if (n.includes('progress') || n.includes('active')) return 'issue-dot-active';
+    if (n.includes('review')) return 'issue-dot-review';
+    if (n.includes('blocked')) return 'issue-dot-blocked';
+    return 'issue-dot-default';
+}
+
+function ganttIssuePillClass(stateName, isOverdue) {
+    if (isOverdue) return 'pill-overdue';
+    const n = stateName.toLowerCase();
+    if (n.includes('done') || n.includes('complet') || n.includes('cancel')) return 'pill-completed';
+    if (n.includes('progress') || n.includes('active')) return 'pill-active';
+    if (n.includes('review')) return 'pill-review';
+    if (n.includes('blocked')) return 'pill-blocked';
+    return 'pill-default';
 }
 
 function toGanttPct(date, rangeStart, totalMs) {

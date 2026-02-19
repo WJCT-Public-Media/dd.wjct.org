@@ -247,11 +247,6 @@ footer {
 
 /* ─── Gantt Chart ─────────────────────────────────────────────────────────── */
 
-/* Outer wrapper scrolls horizontally on small screens */
-.gantt-wrap {
-    overflow-x: auto;
-}
-
 .gantt-row {
     display: flex;
     align-items: stretch;
@@ -575,6 +570,108 @@ footer {
     font-size: 9px;
     flex-shrink: 0;
 }
+
+/* ─── Project expand toggle ──────────────────────────────────────────────── */
+
+.gantt-project-expandable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.gantt-project-expandable:hover {
+    background: #eef3ff;
+}
+
+.gantt-project-expand-icon {
+    font-size: 8px;
+    width: 10px;
+    flex-shrink: 0;
+    color: var(--text-light);
+    text-align: center;
+    display: inline-block;
+}
+
+.gantt-project-expand-empty {
+    opacity: 0;
+}
+
+/* ─── Issue sub-rows in Gantt ────────────────────────────────────────────── */
+
+.gantt-issue-row {
+    background: #f5f8ff;
+    min-height: 36px;
+}
+
+.gantt-issue-row:last-of-type {
+    border-bottom: 2px solid #dde5f0;
+}
+
+.gantt-issue-label {
+    font-size: 12px;
+}
+
+.gantt-issue-indent {
+    color: #bcc8d4;
+    flex-shrink: 0;
+    font-size: 11px;
+    margin-left: 18px;
+}
+
+.gantt-issue-id {
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 11px;
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.gantt-issue-id:hover {
+    text-decoration: underline;
+}
+
+.gantt-issue-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    flex: 1;
+    min-width: 0;
+    color: var(--text);
+}
+
+/* Completed-issues accordion row inside a project expansion */
+.gantt-issue-accordion-row {
+    background: #edf1f8;
+    cursor: pointer;
+    user-select: none;
+}
+
+.gantt-issue-accordion-row:hover {
+    background: #e2e9f3;
+}
+
+/* Due-date dot marker on timeline */
+.gantt-issue-dot {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    z-index: 8;
+}
+
+.issue-dot-active  { background: #3b82f6; }
+.issue-dot-done    { background: #22c55e; }
+.issue-dot-review  { background: var(--review); }
+.issue-dot-blocked { background: var(--urgent); }
+.issue-dot-overdue { background: var(--urgent); box-shadow: 0 0 0 3px rgba(220,53,69,0.25); }
+.issue-dot-default { background: #93c5fd; }
+
+/* Additional pill variants for issues */
+.pill-review  { background: #cff4fc; color: #055160; }
+.pill-blocked { background: #f8d7da; color: #842029; }
 
 /* Fade right edge for bars with no end date */
 .gantt-bar-fade-end {
