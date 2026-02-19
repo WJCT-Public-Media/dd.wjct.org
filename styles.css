@@ -250,7 +250,6 @@ footer {
 /* Outer wrapper scrolls horizontally on small screens */
 .gantt-wrap {
     overflow-x: auto;
-    padding: 0 20px 12px;
 }
 
 .gantt-row {

@@ -135,11 +135,11 @@ async function fetchProjects() {
 function renderDashboard() {
     renderGantt();
     renderSummaryCards();
+    renderMetricsChart();
     renderUrgentDeadlines();
     renderActiveWork();
     renderInReview();
     renderBlockedIssues();
-    renderMetricsChart();
 }
 
 // ─── Gantt Chart ───────────────────────────────────────────────────────────────
