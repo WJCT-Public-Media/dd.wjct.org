@@ -15,7 +15,7 @@ const LINEAR_API = 'https://api.linear.app/graphql';
 
 const ALLOWED_ORIGINS = [
     'http://localhost:8000',
-    'https://rayhollister.github.io',
+    'https://wjct-public-media.github.io',
     'https://dd.wjct.org',
 ];
 
