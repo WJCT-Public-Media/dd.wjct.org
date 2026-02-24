@@ -157,6 +157,7 @@ header h1 {
     border-radius: 8px;
     border-left: 4px solid var(--border);
     transition: all 0.2s;
+    margin-left: calc(var(--issue-depth, 0) * 27px);
 }
 
 .issue-item:hover {

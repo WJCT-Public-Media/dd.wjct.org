@@ -112,6 +112,7 @@ async function fetchIssues() {
                         state { name type }
                         priority priorityLabel dueDate
                         project { id name }
+                        parent { id identifier }
                         url
                         assignee { name }
                     }
@@ -411,9 +412,9 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEn
     const pillClass = ganttPillClass('', stateName, isOverdue);
 
     // Issues belonging to this project, sorted by status then due date
-    const projectIssues = allIssues
-        .filter(i => i.project?.id === project.id)
-        .sort((a, b) => {
+    const projectIssues = flattenIssueHierarchy(
+        allIssues.filter(i => i.project?.id === project.id),
+        (a, b) => {
             const ord = { 'Active': 0, 'In Progress': 1, 'Blocked': 2, 'In Review': 3,
                           'Todo': 4, 'Backlog': 5, 'Done': 6, 'Canceled': 7, 'Duplicate': 8 };
             const ao = ord[a.state?.name] ?? 5;
@@ -423,7 +424,8 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEn
             if (!a.dueDate && b.dueDate) return 1;
             if (a.dueDate && b.dueDate) return parseLocalDate(a.dueDate) - parseLocalDate(b.dueDate);
             return 0;
-        });
+        }
+    );
 
     const hasIssues  = projectIssues.length > 0;
     const isExpanded = expandedProjects.has(project.id);
@@ -456,11 +458,11 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEn
 
     if (isExpanded) {
         const doneStates = ['Done', 'Canceled', 'Duplicate'];
-        const activeIssues    = projectIssues.filter(i => !doneStates.includes(i.state?.name));
-        const completedIssues = projectIssues.filter(i =>  doneStates.includes(i.state?.name));
+        const activeIssues    = projectIssues.filter(({ issue }) => !doneStates.includes(issue.state?.name));
+        const completedIssues = projectIssues.filter(({ issue }) =>  doneStates.includes(issue.state?.name));
 
-        activeIssues.forEach(issue => {
-            html += renderIssueGanttRow(issue, rangeStart, totalMs, todayPct);
+        activeIssues.forEach(({ issue, depth }) => {
+            html += renderIssueGanttRow(issue, rangeStart, totalMs, todayPct, depth);
         });
 
         if (completedIssues.length > 0) {
@@ -477,8 +479,8 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEn
             </div>
         </div>`;
             if (compExpanded) {
-                completedIssues.forEach(issue => {
-                    html += renderIssueGanttRow(issue, rangeStart, totalMs, todayPct);
+                completedIssues.forEach(({ issue, depth }) => {
+                    html += renderIssueGanttRow(issue, rangeStart, totalMs, todayPct, depth);
                 });
             }
         }
@@ -487,7 +489,7 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEn
     return html;
 }
 
-function renderIssueGanttRow(issue, rangeStart, totalMs, todayPct) {
+function renderIssueGanttRow(issue, rangeStart, totalMs, todayPct, depth = 0) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -506,10 +508,12 @@ function renderIssueGanttRow(issue, rangeStart, totalMs, todayPct) {
 
     const pillClass = ganttIssuePillClass(stateName, isOverdue);
 
+    const depthPad = Math.min(6, Math.max(0, depth)) * 21;
+
     return `
         <div class="gantt-row gantt-issue-row">
             <div class="gantt-label gantt-issue-label">
-                <span class="gantt-issue-indent">↳</span>
+                <span class="gantt-issue-indent" style="margin-left:${18 + depthPad}px">↳</span>
                 <a href="${issue.url}" target="_blank" class="gantt-issue-id">${escapeHtml(issue.identifier)}</a>
                 <span class="gantt-issue-title" title="${escapeHtml(issue.title)}">${escapeHtml(issue.title)}</span>
                 <span class="gantt-pill ${pillClass}">${escapeHtml(stateName)}</span>
@@ -636,9 +640,10 @@ function renderUrgentDeadlines() {
         .sort((a, b) => parseLocalDate(a.dueDate) - parseLocalDate(b.dueDate));
 
     const container = document.getElementById('urgent-deadlines');
-    container.innerHTML = urgentDeadlines.length === 0
+    const sortedUrgent = flattenIssueHierarchy(urgentDeadlines, (a, b) => parseLocalDate(a.dueDate) - parseLocalDate(b.dueDate));
+    container.innerHTML = sortedUrgent.length === 0
         ? '<p class="loading">No urgent deadlines in the next 7 days ✅</p>'
-        : urgentDeadlines.map(i => renderIssueItem(i, true)).join('');
+        : sortedUrgent.map(({ issue, depth }) => renderIssueItem(issue, true, depth)).join('');
 }
 
 // ─── Active Work ───────────────────────────────────────────────────────────────
@@ -662,9 +667,22 @@ function renderActiveWork() {
         });
 
     const container = document.getElementById('active-work');
-    container.innerHTML = activeIssues.length === 0
+    const sortedActive = flattenIssueHierarchy(activeIssues, (a, b) => {
+        const statusOrd = { 'Active': 0, 'In Progress': 1 };
+        const so = (statusOrd[a.state.name] ?? 2) - (statusOrd[b.state.name] ?? 2);
+        if (so !== 0) return so;
+        const order = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'No priority': 4 };
+        const ap = order[a.priorityLabel] ?? 4;
+        const bp = order[b.priorityLabel] ?? 4;
+        if (ap !== bp) return ap - bp;
+        if (a.dueDate && !b.dueDate) return -1;
+        if (!a.dueDate && b.dueDate) return 1;
+        if (a.dueDate && b.dueDate) return parseLocalDate(a.dueDate) - parseLocalDate(b.dueDate);
+        return 0;
+    });
+    container.innerHTML = sortedActive.length === 0
         ? '<p class="loading">No active work</p>'
-        : activeIssues.map(i => renderIssueItem(i)).join('');
+        : sortedActive.map(({ issue, depth }) => renderIssueItem(issue, false, depth)).join('');
 }
 
 // ─── In Review ─────────────────────────────────────────────────────────────────
@@ -673,9 +691,10 @@ function renderInReview() {
     const inReviewIssues = allIssues.filter(i => i.state.name === 'In Review');
 
     const container = document.getElementById('in-review');
-    container.innerHTML = inReviewIssues.length === 0
+    const sortedReview = flattenIssueHierarchy(inReviewIssues);
+    container.innerHTML = sortedReview.length === 0
         ? '<p class="loading">Nothing in review right now</p>'
-        : inReviewIssues.map(i => renderIssueItem(i)).join('');
+        : sortedReview.map(({ issue, depth }) => renderIssueItem(issue, false, depth)).join('');
 }
 
 // ─── Blocked Issues ────────────────────────────────────────────────────────────
@@ -684,9 +703,10 @@ function renderBlockedIssues() {
     const blockedIssues = allIssues.filter(i => i.state.name === 'Blocked');
 
     const container = document.getElementById('blocked-issues');
-    container.innerHTML = blockedIssues.length === 0
+    const sortedBlocked = flattenIssueHierarchy(blockedIssues);
+    container.innerHTML = sortedBlocked.length === 0
         ? '<p class="loading">No blocked issues ✅</p>'
-        : blockedIssues.map(i => renderIssueItem(i)).join('');
+        : sortedBlocked.map(({ issue, depth }) => renderIssueItem(issue, false, depth)).join('');
 }
 
 // ─── Pending / Waiting ────────────────────────────────────────────────────────
@@ -706,14 +726,24 @@ function renderPendingWaiting() {
         });
 
     const container = document.getElementById('pending-waiting');
-    container.innerHTML = pendingWaitingIssues.length === 0
+    const sortedPending = flattenIssueHierarchy(pendingWaitingIssues, (a, b) => {
+        const order = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'No priority': 4 };
+        const ap = order[a.priorityLabel] ?? 4;
+        const bp = order[b.priorityLabel] ?? 4;
+        if (ap !== bp) return ap - bp;
+        if (a.dueDate && !b.dueDate) return -1;
+        if (!a.dueDate && b.dueDate) return 1;
+        if (a.dueDate && b.dueDate) return parseLocalDate(a.dueDate) - parseLocalDate(b.dueDate);
+        return 0;
+    });
+    container.innerHTML = sortedPending.length === 0
         ? '<p class="loading">No pending/waiting issues ✅</p>'
-        : pendingWaitingIssues.map(i => renderIssueItem(i)).join('');
+        : sortedPending.map(({ issue, depth }) => renderIssueItem(issue, false, depth)).join('');
 }
 
 // ─── Issue Item ────────────────────────────────────────────────────────────────
 
-function renderIssueItem(issue, showDueDate = false) {
+function renderIssueItem(issue, showDueDate = false, depth = 0) {
     const priorityClass = issue.priorityLabel
         ? `priority-${issue.priorityLabel.toLowerCase()}` : '';
 
@@ -725,8 +755,10 @@ function renderIssueItem(issue, showDueDate = false) {
     const projectInfo = issue.project ? `<span>📁 ${escapeHtml(issue.project.name)}</span>` : '';
     const assigneeInfo = issue.assignee ? `<span>👤 ${escapeHtml(issue.assignee.name)}</span>` : '';
 
+    const safeDepth = Math.min(6, Math.max(0, depth));
+
     return `
-        <div class="issue-item">
+        <div class="issue-item" style="--issue-depth:${safeDepth}">
             <div class="issue-header">
                 <div>
                     <a href="${issue.url}" target="_blank" class="issue-id">${issue.identifier}</a>
@@ -792,6 +824,44 @@ function renderMetricsChart() {
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
+
+function flattenIssueHierarchy(issues, compareFn = defaultIssueSort) {
+    const byId = new Map(issues.map(i => [i.id, i]));
+    const childrenByParent = new Map();
+
+    issues.forEach(issue => {
+        const parentId = issue.parent?.id;
+        if (!parentId || !byId.has(parentId)) return;
+        if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
+        childrenByParent.get(parentId).push(issue);
+    });
+
+    const roots = issues.filter(issue => {
+        const parentId = issue.parent?.id;
+        return !parentId || !byId.has(parentId);
+    }).sort(compareFn);
+
+    const out = [];
+    const visit = (issue, depth) => {
+        out.push({ issue, depth });
+        const children = (childrenByParent.get(issue.id) || []).sort(compareFn);
+        children.forEach(child => visit(child, depth + 1));
+    };
+
+    roots.forEach(root => visit(root, 0));
+    return out;
+}
+
+function defaultIssueSort(a, b) {
+    const order = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'No priority': 4 };
+    const ap = order[a.priorityLabel] ?? 4;
+    const bp = order[b.priorityLabel] ?? 4;
+    if (ap !== bp) return ap - bp;
+    if (a.dueDate && !b.dueDate) return -1;
+    if (!a.dueDate && b.dueDate) return 1;
+    if (a.dueDate && b.dueDate) return parseLocalDate(a.dueDate) - parseLocalDate(b.dueDate);
+    return 0;
+}
 
 // Sort order for project status: In Progress first, then Backlog/other, then Completed/Cancelled
 function projectStatusOrder(stateName) {
