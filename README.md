@@ -63,26 +63,27 @@ Real-time project status and metrics dashboard for the Digital Media Department.
 
 ## Security Considerations
 
-⚠️ **IMPORTANT:** The Linear API key is currently in client-side JavaScript.
+⚠️ **IMPORTANT:** Do not expose Linear API credentials in client-side code.
 
-**For production, use one of these approaches:**
+### Current security model (implemented)
 
-1. **Backend Proxy (Recommended):**
-   - Create a simple Node.js/Python backend
-   - Backend holds API key securely
-   - Frontend calls backend, backend calls Linear
-   - Deploy backend on WJCT infrastructure
+- The dashboard calls a Cloudflare Worker proxy (`worker.js`) instead of calling Linear directly.
+- The Linear API key is stored as a Cloudflare secret (`LINEAR_API_KEY`), not in browser JS.
+- Worker CORS is restricted via `ALLOWED_ORIGINS` to approved hosts (e.g., `dd.wjct.org`, approved localhost/dev origins).
+- Browser requests must be `POST` with JSON; unsupported methods are rejected.
 
-2. **OAuth Flow:**
-   - Implement Google OAuth for @wjct.org
-   - Store Linear API key server-side
-   - Users authenticate with Google
-   - Server returns authorized data
+### Operational safeguards
 
-3. **Read-Only API Key:**
-   - Create a dedicated read-only Linear API key
-   - Limit scope to only viewing issues
-   - Rotate key regularly
+- Keep `config.local.js` and any local secret-bearing files out of Git.
+- Review and minimize `ALLOWED_ORIGINS` before production deploys.
+- Rotate `LINEAR_API_KEY` periodically and immediately on suspected exposure.
+- Prefer read-only scoped access for dashboard workloads where possible.
+
+### Recommended hardening (next)
+
+1. Add lightweight auth at the Worker edge (token/header allowlist) for non-public environments.
+2. Add request validation/rate limiting in the Worker.
+3. Add periodic audit of Worker secrets and allowed origins.
 
 ## Current Status
 
