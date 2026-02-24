@@ -690,6 +690,33 @@ footer {
     background: #e2e9f3;
 }
 
+/* Milestone markers on project timeline */
+.gantt-milestone {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%) rotate(45deg);
+    width: 12px;
+    height: 12px;
+    background: #f59e0b;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.15);
+    z-index: 12;
+}
+
+.gantt-milestone-label {
+    position: absolute;
+    top: -18px;
+    left: 8px;
+    transform: rotate(-45deg);
+    font-size: 10px;
+    color: #b45309;
+    background: rgba(255,255,255,0.9);
+    padding: 1px 4px;
+    border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
 /* Due-date dot marker on timeline */
 .gantt-issue-dot {
     position: absolute;

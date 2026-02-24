@@ -130,6 +130,13 @@ async function fetchProjects() {
                         id name color startDate targetDate url
                         status { name }
                         initiatives { nodes { id name } }
+                        projectMilestones(first: 50) {
+                            nodes {
+                                id
+                                name
+                                targetDate
+                            }
+                        }
                     }
                 }
             }
@@ -387,6 +394,17 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEn
         barHtml = `<span class="gantt-no-date">No dates set</span>`;
     }
 
+    const milestoneHtml = (project.projectMilestones?.nodes || [])
+        .filter(m => m.targetDate)
+        .map(m => {
+            const d = parseLocalDate(m.targetDate);
+            const pct = toGanttPct(d, rangeStart, totalMs);
+            const tip = `${project.name} milestone: ${m.name} · ${d.toLocaleDateString()}`;
+            return `<div class="gantt-milestone" style="left:${pct.toFixed(2)}%" title="${escapeHtml(tip)}">
+                <span class="gantt-milestone-label">${escapeHtml(m.name)}</span>
+            </div>`;
+        }).join('');
+
     const pillClass = ganttPillClass('', stateName, isOverdue);
 
     // Issues belonging to this project, sorted by status then due date
@@ -428,6 +446,7 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEn
             <div class="gantt-timeline">
                 <div class="gantt-today-line" style="left:${todayPct.toFixed(2)}%"></div>
                 ${barHtml}
+                ${milestoneHtml}
             </div>
         </div>`;
 
