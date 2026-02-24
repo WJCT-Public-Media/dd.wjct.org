@@ -157,6 +157,7 @@ function renderDashboard() {
     renderActiveWork();
     renderInReview();
     renderBlockedIssues();
+    renderPendingWaiting();
 }
 
 // ─── Gantt Chart ───────────────────────────────────────────────────────────────
@@ -631,6 +632,28 @@ function renderBlockedIssues() {
     container.innerHTML = blockedIssues.length === 0
         ? '<p class="loading">No blocked issues ✅</p>'
         : blockedIssues.map(i => renderIssueItem(i)).join('');
+}
+
+// ─── Pending / Waiting ────────────────────────────────────────────────────────
+
+function renderPendingWaiting() {
+    const pendingWaitingIssues = allIssues
+        .filter(i => ['Pending', 'Waiting'].includes(i.state.name))
+        .sort((a, b) => {
+            const order = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'No priority': 4 };
+            const ap = order[a.priorityLabel] ?? 4;
+            const bp = order[b.priorityLabel] ?? 4;
+            if (ap !== bp) return ap - bp;
+            if (a.dueDate && !b.dueDate) return -1;
+            if (!a.dueDate && b.dueDate) return 1;
+            if (a.dueDate && b.dueDate) return parseLocalDate(a.dueDate) - parseLocalDate(b.dueDate);
+            return 0;
+        });
+
+    const container = document.getElementById('pending-waiting');
+    container.innerHTML = pendingWaitingIssues.length === 0
+        ? '<p class="loading">No pending/waiting issues ✅</p>'
+        : pendingWaitingIssues.map(i => renderIssueItem(i)).join('');
 }
 
 // ─── Issue Item ────────────────────────────────────────────────────────────────
