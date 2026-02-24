@@ -7,6 +7,7 @@ let lastUpdate = null;
 let ganttRangeMonths = null; // null = span all data automatically
 let ganttLabelWidth = 240;   // px — updated by drag, persists across re-renders
 let milestoneTooltips = [];
+let selectedAssignee = 'All';
 const expandedAccordions = new Set();
 
 // Accordion toggle — called from inline onclick in Gantt HTML
@@ -63,6 +64,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         rangeInput.addEventListener('keydown', e => { if (e.key === 'Enter') rangeInput.blur(); });
     }
 
+    // Assignee combobox filter
+    const assigneeCombo = document.getElementById('assignee-combobox');
+    if (assigneeCombo) {
+        assigneeCombo.addEventListener('focus', () => showAssigneeDropdown());
+        assigneeCombo.addEventListener('input', () => showAssigneeDropdown(assigneeCombo.value));
+        assigneeCombo.addEventListener('keydown', handleAssigneeComboboxKey);
+        assigneeCombo.addEventListener('blur', () => setTimeout(() => {
+            selectedAssignee = normalizeAssigneeSelection(assigneeCombo.value);
+            assigneeCombo.value = selectedAssignee;
+            closeAssigneeDropdown();
+            renderDashboard();
+        }, 150));
+    }
+
     // Ctrl+Scroll to zoom the Gantt time range
 
     document.getElementById('gantt-section')?.addEventListener('wheel', e => {
@@ -92,6 +107,7 @@ async function callWorker(query) {
 // Issues and projects are fetched independently so one failure doesn't blank both.
 async function fetchData() {
     await Promise.all([fetchIssues(), fetchProjects()]);
+    renderAssigneeCombobox();
 
     lastUpdate = new Date();
     document.getElementById('last-updated').textContent =
@@ -174,6 +190,7 @@ function renderDashboard() {
 // ─── Gantt Chart ───────────────────────────────────────────────────────────────
 
 function renderGantt() {
+    const issues = getFilteredIssues();
     const container = document.getElementById('gantt-chart');
 
     if (allProjects.length === 0) {
@@ -275,7 +292,7 @@ function renderGantt() {
         const activeProjs    = projects.filter(p => !isProjectCompleted(p));
         const completedProjs = projects.filter(p => isProjectCompleted(p));
 
-        activeProjs.forEach(p => { rows += renderProjectRow(p, today, rangeStart, totalMs, todayPct, rangeEnd); });
+        activeProjs.forEach(p => { rows += renderProjectRow(p, today, rangeStart, totalMs, todayPct, rangeEnd, issues); });
 
         if (completedProjs.length > 0) {
             const key      = `${label}_completed`;
@@ -292,7 +309,7 @@ function renderGantt() {
                     </div>
                 </div>`;
             if (expanded) {
-                completedProjs.forEach(p => { rows += renderProjectRow(p, today, rangeStart, totalMs, todayPct, rangeEnd); });
+                completedProjs.forEach(p => { rows += renderProjectRow(p, today, rangeStart, totalMs, todayPct, rangeEnd, issues); });
             }
         }
     }
@@ -372,7 +389,7 @@ function setupGanttResizer() {
     });
 }
 
-function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEnd) {
+function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEnd, issues) {
     const start = project.startDate ? parseLocalDate(project.startDate) : null;
     const end   = project.targetDate ? parseLocalDate(project.targetDate) : null;
 
@@ -413,7 +430,7 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEn
 
     // Issues belonging to this project, sorted by status then due date
     const projectIssues = flattenIssueHierarchy(
-        allIssues.filter(i => i.project?.id === project.id),
+        issues.filter(i => i.project?.id === project.id),
         (a, b) => {
             const ord = { 'Active': 0, 'In Progress': 1, 'Blocked': 2, 'In Review': 3,
                           'Todo': 4, 'Backlog': 5, 'Done': 6, 'Canceled': 7, 'Duplicate': 8 };
@@ -507,6 +524,9 @@ function renderIssueGanttRow(issue, rangeStart, totalMs, todayPct, depth = 0) {
     }
 
     const pillClass = ganttIssuePillClass(stateName, isOverdue);
+    const assigneePill = issue.assignee?.name
+        ? `<span class="gantt-pill pill-assignee">${escapeHtml(issue.assignee.name)}</span>`
+        : '';
 
     const depthPad = Math.min(6, Math.max(0, depth)) * 21;
 
@@ -516,6 +536,7 @@ function renderIssueGanttRow(issue, rangeStart, totalMs, todayPct, depth = 0) {
                 <span class="gantt-issue-indent" style="margin-left:${18 + depthPad}px">↳</span>
                 <a href="${issue.url}" target="_blank" class="gantt-issue-id">${escapeHtml(issue.identifier)}</a>
                 <span class="gantt-issue-title" title="${escapeHtml(issue.title)}">${escapeHtml(issue.title)}</span>
+                ${assigneePill}
                 <span class="gantt-pill ${pillClass}">${escapeHtml(stateName)}</span>
             </div>
             <div class="gantt-timeline">
@@ -603,20 +624,21 @@ function initMilestoneTooltips() {
 // ─── Summary Cards ─────────────────────────────────────────────────────────────
 
 function renderSummaryCards() {
+    const issues = getFilteredIssues();
     const today     = new Date();
     const sevenDays = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
     const doneStates = ['Done', 'Canceled', 'Duplicate'];
 
     // Urgent = issues with a due date within 7 days (matches the Urgent Deadlines section)
-    const urgent  = allIssues.filter(i => {
+    const urgent  = issues.filter(i => {
         if (!i.dueDate) return false;
         if (doneStates.includes(i.state.name) || i.state.name === 'In Review') return false;
         return parseLocalDate(i.dueDate) <= sevenDays;
     });
-    const active  = allIssues.filter(i => ['In Progress', 'Active'].includes(i.state.name));
-    const blocked = allIssues.filter(i => i.state.name === 'Blocked');
-    const review  = allIssues.filter(i => i.state.name === 'In Review');
-    const waiting = allIssues.filter(i => ['Waiting', 'Pending'].includes(i.state.name));
+    const active  = issues.filter(i => ['In Progress', 'Active'].includes(i.state.name));
+    const blocked = issues.filter(i => i.state.name === 'Blocked');
+    const review  = issues.filter(i => i.state.name === 'In Review');
+    const waiting = issues.filter(i => ['Waiting', 'Pending'].includes(i.state.name));
 
     document.getElementById('urgent-count').textContent  = urgent.length;
     document.getElementById('active-count').textContent  = active.length;
@@ -628,10 +650,11 @@ function renderSummaryCards() {
 // ─── Urgent Deadlines ──────────────────────────────────────────────────────────
 
 function renderUrgentDeadlines() {
+    const issues = getFilteredIssues();
     const today    = new Date();
     const sevenDays = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    const urgentDeadlines = allIssues
+    const urgentDeadlines = issues
         .filter(i => {
             if (!i.dueDate) return false;
             if (['Done', 'Canceled', 'Duplicate', 'In Review'].includes(i.state.name)) return false;
@@ -649,7 +672,8 @@ function renderUrgentDeadlines() {
 // ─── Active Work ───────────────────────────────────────────────────────────────
 
 function renderActiveWork() {
-    const activeIssues = allIssues
+    const issues = getFilteredIssues();
+    const activeIssues = issues
         .filter(i => ['In Progress', 'Active'].includes(i.state.name))
         .sort((a, b) => {
             // Active before In Progress
@@ -688,7 +712,8 @@ function renderActiveWork() {
 // ─── In Review ─────────────────────────────────────────────────────────────────
 
 function renderInReview() {
-    const inReviewIssues = allIssues.filter(i => i.state.name === 'In Review');
+    const issues = getFilteredIssues();
+    const inReviewIssues = issues.filter(i => i.state.name === 'In Review');
 
     const container = document.getElementById('in-review');
     const sortedReview = flattenIssueHierarchy(inReviewIssues);
@@ -700,7 +725,8 @@ function renderInReview() {
 // ─── Blocked Issues ────────────────────────────────────────────────────────────
 
 function renderBlockedIssues() {
-    const blockedIssues = allIssues.filter(i => i.state.name === 'Blocked');
+    const issues = getFilteredIssues();
+    const blockedIssues = issues.filter(i => i.state.name === 'Blocked');
 
     const container = document.getElementById('blocked-issues');
     const sortedBlocked = flattenIssueHierarchy(blockedIssues);
@@ -712,7 +738,8 @@ function renderBlockedIssues() {
 // ─── Pending / Waiting ────────────────────────────────────────────────────────
 
 function renderPendingWaiting() {
-    const pendingWaitingIssues = allIssues
+    const issues = getFilteredIssues();
+    const pendingWaitingIssues = issues
         .filter(i => ['Pending', 'Waiting'].includes(i.state.name))
         .sort((a, b) => {
             const order = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'No priority': 4 };
@@ -778,13 +805,14 @@ function renderIssueItem(issue, showDueDate = false, depth = 0) {
 // ─── Metrics Chart ─────────────────────────────────────────────────────────────
 
 function renderMetricsChart() {
+    const issues = getFilteredIssues();
     const ctx = document.getElementById('metrics-chart');
 
     const statusCounts = {
         'Backlog': 0, 'Todo': 0, 'In Progress': 0,
         'Active': 0, 'Waiting': 0, 'Blocked': 0, 'In Review': 0, 'Done': 0
     };
-    allIssues.forEach(issue => {
+    issues.forEach(issue => {
         const stateName = issue.state.name === 'Pending' ? 'Waiting' : issue.state.name;
         if (Object.prototype.hasOwnProperty.call(statusCounts, stateName)) {
             statusCounts[stateName]++;
@@ -824,6 +852,101 @@ function renderMetricsChart() {
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
+
+function renderAssigneeCombobox() {
+    const input = document.getElementById('assignee-combobox');
+    if (!input) return;
+
+    selectedAssignee = normalizeAssigneeSelection(selectedAssignee);
+    input.value = selectedAssignee;
+}
+
+function getAvailableAssignees() {
+    const activeIssueAssignees = allIssues
+        .filter(i => i.assignee?.name)
+        .filter(i => !['completed', 'canceled'].includes(i.state?.type))
+        .map(i => i.assignee.name);
+
+    return Array.from(new Set(activeIssueAssignees))
+        .sort((a, b) => a.localeCompare(b));
+}
+
+function showAssigneeDropdown(query = '') {
+    const dropdown = document.getElementById('assignee-combobox-dropdown');
+    if (!dropdown) return;
+
+    const q = (query || '').trim().toLowerCase();
+    const assignees = ['All', ...getAvailableAssignees()].filter(name => name.toLowerCase().includes(q));
+
+    dropdown.innerHTML = assignees.length
+        ? assignees.map(name => `<div class="combobox-option" onmousedown="selectAssigneeOption('${name.replace(/'/g, "\\'")}')">${escapeHtml(name)}</div>`).join('')
+        : '<div class="combobox-empty">No assignees found</div>';
+
+    dropdown.style.display = 'block';
+}
+
+function closeAssigneeDropdown() {
+    const dropdown = document.getElementById('assignee-combobox-dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+function selectAssigneeOption(name) {
+    const input = document.getElementById('assignee-combobox');
+    if (!input) return;
+    selectedAssignee = normalizeAssigneeSelection(name);
+    input.value = selectedAssignee;
+    closeAssigneeDropdown();
+    renderDashboard();
+}
+
+function handleAssigneeComboboxKey(event) {
+    const dropdown = document.getElementById('assignee-combobox-dropdown');
+    if (!dropdown || dropdown.style.display === 'none') return;
+
+    const options = Array.from(dropdown.querySelectorAll('.combobox-option'));
+    if (options.length === 0) return;
+
+    const active = dropdown.querySelector('.combobox-option.active');
+    let idx = active ? options.indexOf(active) : -1;
+
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (active) active.classList.remove('active');
+        idx = idx < options.length - 1 ? idx + 1 : 0;
+        options[idx].classList.add('active');
+        options[idx].scrollIntoView({ block: 'nearest' });
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (active) active.classList.remove('active');
+        idx = idx > 0 ? idx - 1 : options.length - 1;
+        options[idx].classList.add('active');
+        options[idx].scrollIntoView({ block: 'nearest' });
+    } else if (event.key === 'Enter') {
+        event.preventDefault();
+        if (active) {
+            active.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        } else if (options[0]) {
+            options[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        }
+    } else if (event.key === 'Escape') {
+        closeAssigneeDropdown();
+    }
+}
+
+function normalizeAssigneeSelection(value) {
+    const raw = (value || '').trim();
+    if (!raw || raw.toLowerCase() === 'all') return 'All';
+
+    const available = getAvailableAssignees();
+    const matches = available.find(name => name.toLowerCase() === raw.toLowerCase());
+
+    return matches || 'All';
+}
+
+function getFilteredIssues() {
+    if (selectedAssignee === 'All') return allIssues;
+    return allIssues.filter(i => (i.assignee?.name || '') === selectedAssignee);
+}
 
 function flattenIssueHierarchy(issues, compareFn = defaultIssueSort) {
     const byId = new Map(issues.map(i => [i.id, i]));

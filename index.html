@@ -19,8 +19,17 @@
                 <p class="subtitle">Real-time Project Status & Metrics</p>
             </div>
             <div class="header-meta">
-                <span id="last-updated">Loading...</span>
-                <button id="refresh-btn" class="btn-refresh">↻ Refresh</button>
+                <div class="header-meta-top">
+                    <span id="last-updated">Loading...</span>
+                    <button id="refresh-btn" class="btn-refresh">↻ Refresh</button>
+                </div>
+                <div class="header-assignee-filter">
+                    <label for="assignee-combobox">Assignee</label>
+                    <div class="combobox-wrapper header-combobox-wrapper">
+                        <input id="assignee-combobox" class="metrics-combobox" value="All" placeholder="All" aria-label="Filter metrics by assignee" autocomplete="off">
+                        <div id="assignee-combobox-dropdown" class="combobox-dropdown" style="display:none;"></div>
+                    </div>
+                </div>
             </div>
         </header>
     </div>
