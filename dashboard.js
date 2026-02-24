@@ -6,6 +6,7 @@ let metricsChartInstance = null;
 let lastUpdate = null;
 let ganttRangeMonths = null; // null = span all data automatically
 let ganttLabelWidth = 240;   // px — updated by drag, persists across re-renders
+let milestoneTooltips = [];
 const expandedAccordions = new Set();
 
 // Accordion toggle — called from inline onclick in Gantt HTML
@@ -63,6 +64,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Ctrl+Scroll to zoom the Gantt time range
+
     document.getElementById('gantt-section')?.addEventListener('wheel', e => {
         if (!e.ctrlKey && !e.metaKey) return;
         e.preventDefault();
@@ -71,6 +73,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         ganttRangeMonths = Math.max(1, Math.round(trySnapMonths(raw)));
         renderGantt();
     }, { passive: false });
+
 });
 
 // Shared fetch helper — one GraphQL call through the Worker
@@ -328,6 +331,7 @@ function renderGantt() {
         </div>`;
 
     setupGanttResizer();
+    initMilestoneTooltips();
 }
 
 function setupGanttResizer() {
@@ -400,10 +404,8 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEn
         .map(m => {
             const d = parseLocalDate(m.targetDate);
             const pct = toGanttPct(d, rangeStart, totalMs);
-            const tip = `${project.name} milestone: ${m.name} · ${d.toLocaleDateString()}`;
-            return `<div class="gantt-milestone" style="left:${pct.toFixed(2)}%" title="${escapeHtml(tip)}">
-                <span class="gantt-milestone-label">${escapeHtml(m.name)} · ${d.toLocaleDateString()}</span>
-            </div>`;
+            const tip = encodeURIComponent(`${d.toLocaleDateString()} · ${m.name}`);
+            return `<div class="gantt-milestone" style="left:${pct.toFixed(2)}%" data-milestone-tip="${tip}"></div>`;
         }).join('');
 
     const pillClass = ganttPillClass('', stateName, isOverdue);
@@ -562,6 +564,38 @@ function ganttPillClass(type, name, isOverdue) {
     return 'pill-default';
 }
 
+function initMilestoneTooltips() {
+    milestoneTooltips.forEach(t => t.destroy());
+    milestoneTooltips = [];
+
+    if (typeof tippy !== 'function') return;
+
+    document.querySelectorAll('.gantt-milestone').forEach(el => {
+        const encoded = el.getAttribute('data-milestone-tip');
+        if (!encoded) return;
+        const content = decodeURIComponent(encoded);
+
+        const tip = tippy(el, {
+            content,
+            theme: 'milestone',
+            trigger: 'mouseenter focus',
+            placement: 'bottom',
+            delay: [0, 2200],
+            duration: [120, 180],
+            offset: [0, 10],
+            interactive: false,
+            appendTo: () => document.body,
+            onShow(instance) {
+                milestoneTooltips.forEach(other => {
+                    if (other !== instance) other.hide(0);
+                });
+            },
+        });
+
+        milestoneTooltips.push(tip);
+    });
+}
+
 // ─── Summary Cards ─────────────────────────────────────────────────────────────
 
 function renderSummaryCards() {
@@ -577,14 +611,12 @@ function renderSummaryCards() {
     });
     const active  = allIssues.filter(i => ['In Progress', 'Active'].includes(i.state.name));
     const blocked = allIssues.filter(i => i.state.name === 'Blocked');
-    const done    = allIssues.filter(i => i.state.name === 'Done');
     const review  = allIssues.filter(i => i.state.name === 'In Review');
     const waiting = allIssues.filter(i => ['Waiting', 'Pending'].includes(i.state.name));
 
     document.getElementById('urgent-count').textContent  = urgent.length;
     document.getElementById('active-count').textContent  = active.length;
     document.getElementById('blocked-count').textContent = blocked.length;
-    document.getElementById('done-count').textContent    = done.length;
     document.getElementById('review-count').textContent  = review.length;
     document.getElementById('waiting-count').textContent = waiting.length;
 }
