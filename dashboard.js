@@ -379,16 +379,17 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEn
     const cls = ganttBarClass('', stateName, isOverdue);
 
     let barHtml = '';
+    let barLabelHtml = '';
     if (start || end) {
         const s = toGanttPct(start || today, rangeStart, totalMs);
         const e = toGanttPct(end || rangeEnd, rangeStart, totalMs);
         const w = Math.max(0.5, e - s);
         const fadeClass = !end ? ' gantt-bar-fade-end' : '';
         const tipDates = `${start ? start.toLocaleDateString() : 'No start'} → ${end ? end.toLocaleDateString() : 'No end date set'}`;
+        barLabelHtml = `<div class="gantt-bar-label" style="left:${s.toFixed(2)}%">${escapeHtml(project.name)}</div>`;
         barHtml = `<div class="gantt-bar ${cls}${fadeClass}"
             style="left:${s.toFixed(2)}%;width:${w.toFixed(2)}%"
             title="${escapeHtml(project.name + ' · ' + stateName + ' · ' + tipDates)}">
-            ${w > 8 ? `<span>${escapeHtml(project.name)}</span>` : ''}
         </div>`;
     } else {
         barHtml = `<span class="gantt-no-date">No dates set</span>`;
@@ -401,7 +402,7 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEn
             const pct = toGanttPct(d, rangeStart, totalMs);
             const tip = `${project.name} milestone: ${m.name} · ${d.toLocaleDateString()}`;
             return `<div class="gantt-milestone" style="left:${pct.toFixed(2)}%" title="${escapeHtml(tip)}">
-                <span class="gantt-milestone-label">${escapeHtml(m.name)}</span>
+                <span class="gantt-milestone-label">${escapeHtml(m.name)} · ${d.toLocaleDateString()}</span>
             </div>`;
         }).join('');
 
@@ -445,6 +446,7 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEn
             </div>
             <div class="gantt-timeline">
                 <div class="gantt-today-line" style="left:${todayPct.toFixed(2)}%"></div>
+                ${barLabelHtml}
                 ${barHtml}
                 ${milestoneHtml}
             </div>
@@ -577,12 +579,14 @@ function renderSummaryCards() {
     const blocked = allIssues.filter(i => i.state.name === 'Blocked');
     const done    = allIssues.filter(i => i.state.name === 'Done');
     const review  = allIssues.filter(i => i.state.name === 'In Review');
+    const waiting = allIssues.filter(i => ['Waiting', 'Pending'].includes(i.state.name));
 
     document.getElementById('urgent-count').textContent  = urgent.length;
     document.getElementById('active-count').textContent  = active.length;
     document.getElementById('blocked-count').textContent = blocked.length;
     document.getElementById('done-count').textContent    = done.length;
     document.getElementById('review-count').textContent  = review.length;
+    document.getElementById('waiting-count').textContent = waiting.length;
 }
 
 // ─── Urgent Deadlines ──────────────────────────────────────────────────────────
@@ -714,11 +718,12 @@ function renderMetricsChart() {
 
     const statusCounts = {
         'Backlog': 0, 'Todo': 0, 'In Progress': 0,
-        'Active': 0, 'Blocked': 0, 'In Review': 0, 'Done': 0
+        'Active': 0, 'Waiting': 0, 'Blocked': 0, 'In Review': 0, 'Done': 0
     };
     allIssues.forEach(issue => {
-        if (Object.prototype.hasOwnProperty.call(statusCounts, issue.state.name)) {
-            statusCounts[issue.state.name]++;
+        const stateName = issue.state.name === 'Pending' ? 'Waiting' : issue.state.name;
+        if (Object.prototype.hasOwnProperty.call(statusCounts, stateName)) {
+            statusCounts[stateName]++;
         }
     });
 
@@ -737,7 +742,7 @@ function renderMetricsChart() {
                 data: Object.values(statusCounts),
                 backgroundColor: [
                     '#6c757d', '#ffc107', '#fd7e14',
-                    '#dc3545', '#6c757d', '#17a2b8', '#28a745'
+                    '#dc3545', '#0066cc', '#6c757d', '#17a2b8', '#28a745'
                 ],
                 borderWidth: 0
             }]

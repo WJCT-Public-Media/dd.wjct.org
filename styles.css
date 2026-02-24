@@ -127,6 +127,7 @@ header h1 {
 .card-blocked { border-left: 4px solid var(--blocked); }
 .card-done    { border-left: 4px solid var(--done); }
 .card-review  { border-left: 4px solid var(--review); }
+.card-waiting { border-left: 4px solid var(--primary); }
 
 /* Section */
 .section {
@@ -415,13 +416,20 @@ footer {
     cursor: default;
 }
 
-.gantt-bar span {
+.gantt-bar-label {
+    position: absolute;
+    top: 50%;
+    transform: translate(-100%, -50%);
+    margin-left: -8px;
     font-size: 11px;
-    font-weight: 500;
-    color: white;
+    font-weight: 600;
+    color: var(--text);
     white-space: nowrap;
+    max-width: 220px;
     overflow: hidden;
     text-overflow: ellipsis;
+    pointer-events: none;
+    z-index: 11;
 }
 
 .bar-active    { background: #3b82f6; }
@@ -697,7 +705,7 @@ footer {
     transform: translate(-50%, -50%) rotate(45deg);
     width: 12px;
     height: 12px;
-    background: #f59e0b;
+    background: var(--primary);
     border: 2px solid #fff;
     box-shadow: 0 0 0 1px rgba(0,0,0,0.15);
     z-index: 12;
@@ -709,12 +717,20 @@ footer {
     left: 8px;
     transform: rotate(-45deg);
     font-size: 10px;
-    color: #b45309;
-    background: rgba(255,255,255,0.9);
+    color: var(--text);
+    background: rgba(255,255,255,0.95);
     padding: 1px 4px;
     border-radius: 4px;
     white-space: nowrap;
     pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.12s ease;
+}
+
+.gantt-milestone:hover .gantt-milestone-label {
+    opacity: 1;
+    visibility: visible;
 }
 
 /* Due-date dot marker on timeline */
