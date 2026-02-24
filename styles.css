@@ -233,6 +233,19 @@ header h1 {
     margin-left: calc(var(--issue-depth, 0) * 27px);
 }
 
+/* Status tint backgrounds (matched to Department Metrics chart colors @ ~15% opacity) */
+.issue-state-backlog { background: rgba(108, 117, 125, 0.15); }
+.issue-state-todo { background: rgba(255, 193, 7, 0.15); }
+.issue-state-in-progress { background: rgba(253, 126, 20, 0.15); }
+.issue-state-active { background: rgba(220, 53, 69, 0.15); }
+.issue-state-waiting,
+.issue-state-pending { background: rgba(0, 102, 204, 0.15); }
+.issue-state-blocked { background: rgba(108, 117, 125, 0.15); }
+.issue-state-in-review { background: rgba(23, 162, 184, 0.15); }
+.issue-state-done,
+.issue-state-canceled,
+.issue-state-duplicate { background: rgba(40, 167, 69, 0.15); }
+
 .issue-item:hover {
     background: #e9ecef;
     border-left-color: var(--primary);
@@ -722,6 +735,18 @@ footer {
     background: #f5f8ff;
     min-height: 36px;
 }
+
+.gantt-issue-row.issue-state-backlog { background: rgba(108, 117, 125, 0.15); }
+.gantt-issue-row.issue-state-todo { background: rgba(255, 193, 7, 0.15); }
+.gantt-issue-row.issue-state-in-progress { background: rgba(253, 126, 20, 0.15); }
+.gantt-issue-row.issue-state-active { background: rgba(220, 53, 69, 0.15); }
+.gantt-issue-row.issue-state-waiting,
+.gantt-issue-row.issue-state-pending { background: rgba(0, 102, 204, 0.15); }
+.gantt-issue-row.issue-state-blocked { background: rgba(108, 117, 125, 0.15); }
+.gantt-issue-row.issue-state-in-review { background: rgba(23, 162, 184, 0.15); }
+.gantt-issue-row.issue-state-done,
+.gantt-issue-row.issue-state-canceled,
+.gantt-issue-row.issue-state-duplicate { background: rgba(40, 167, 69, 0.15); }
 
 .gantt-issue-row:last-of-type {
     border-bottom: 2px solid #dde5f0;

@@ -530,8 +530,10 @@ function renderIssueGanttRow(issue, rangeStart, totalMs, todayPct, depth = 0) {
 
     const depthPad = Math.min(6, Math.max(0, depth)) * 21;
 
+    const stateSlug = (stateName || 'unknown').toLowerCase().replace(/ /g, '-');
+
     return `
-        <div class="gantt-row gantt-issue-row">
+        <div class="gantt-row gantt-issue-row issue-state-${stateSlug}">
             <div class="gantt-label gantt-issue-label">
                 <span class="gantt-issue-indent" style="margin-left:${18 + depthPad}px">↳</span>
                 <a href="${issue.url}" target="_blank" class="gantt-issue-id">${escapeHtml(issue.identifier)}</a>
@@ -777,7 +779,8 @@ function renderIssueItem(issue, showDueDate = false, depth = 0) {
     const dueInfo = issue.dueDate
         ? `<span class="due-soon">📅 Due ${formatDate(issue.dueDate)}</span>` : '';
 
-    const statusBadge = `<span class="status-badge status-${issue.state.name.toLowerCase().replace(/ /g, '-')}">${issue.state.name}</span>`;
+    const statusSlug = issue.state.name.toLowerCase().replace(/ /g, '-');
+    const statusBadge = `<span class="status-badge status-${statusSlug}">${issue.state.name}</span>`;
 
     const projectInfo = issue.project ? `<span>📁 ${escapeHtml(issue.project.name)}</span>` : '';
     const assigneeInfo = issue.assignee ? `<span>👤 ${escapeHtml(issue.assignee.name)}</span>` : '';
@@ -785,7 +788,7 @@ function renderIssueItem(issue, showDueDate = false, depth = 0) {
     const safeDepth = Math.min(6, Math.max(0, depth));
 
     return `
-        <div class="issue-item" style="--issue-depth:${safeDepth}">
+        <div class="issue-item issue-state-${statusSlug}" style="--issue-depth:${safeDepth}">
             <div class="issue-header">
                 <div>
                     <a href="${issue.url}" target="_blank" class="issue-id">${issue.identifier}</a>
