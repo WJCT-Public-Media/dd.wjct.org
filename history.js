@@ -3,7 +3,7 @@ let selectedAssignee = 'All';
 let historyChart = null;
 
 const timeframeState = {
-    preset: 'month',
+    preset: 'year',
     start: null,
     end: null,
 };
@@ -45,9 +45,9 @@ async function fetchHistoryData() {
                     first: 500
                     filter: {
                         team: { id: { eq: "${CONFIG.TEAM_ID}" } }
-                        state: { type: { in: [completed, canceled] } }
+                        state: { type: { eq: completed } }
                     }
-                    orderBy: completedAt
+                    orderBy: updatedAt
                 ) {
                     nodes {
                         id
@@ -55,7 +55,8 @@ async function fetchHistoryData() {
                         title
                         url
                         completedAt
-                        completedAt
+                        autoClosedAt
+                        updatedAt
                         state { name type }
                         assignee { name }
                     }
@@ -64,8 +65,11 @@ async function fetchHistoryData() {
         `);
 
         allClosedIssues = (data?.issues?.nodes || [])
-            .filter(i => i.completedAt)
-            .map(i => ({ ...i, completedDate: parseDateOnly(i.completedAt) }));
+            .map(i => {
+                const closedAt = i.completedAt || i.autoClosedAt || i.updatedAt;
+                return { ...i, closedAt, completedDate: closedAt ? parseDateOnly(closedAt) : null };
+            })
+            .filter(i => i.completedDate);
 
         document.getElementById('history-last-updated').textContent =
             `Updated: ${new Date().toLocaleTimeString()}`;
