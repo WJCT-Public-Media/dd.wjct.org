@@ -6,6 +6,7 @@ let metricsChartInstance = null;
 let lastUpdate = null;
 let ganttRangeMonths = null; // null = span all data automatically
 let ganttLabelWidth = 240;   // px — updated by drag, persists across re-renders
+let ganttLabelAutoSize = true;
 let milestoneTooltips = [];
 let selectedAssignee = 'All';
 const expandedAccordions = new Set();
@@ -349,8 +350,42 @@ function renderGantt() {
             ${rows}
         </div>`;
 
+    autoSizeGanttLabelColumn();
     setupGanttResizer();
     initMilestoneTooltips();
+}
+
+function autoSizeGanttLabelColumn(force = false) {
+    if (!ganttLabelAutoSize && !force) return;
+
+    const labels = Array.from(document.querySelectorAll('#gantt-chart .gantt-label'));
+    if (labels.length === 0) return;
+
+    const maxContentWidth = labels.reduce((max, el) => {
+        return Math.max(max, measureLabelContentWidth(el));
+    }, 0);
+
+    const desired = Math.max(240, Math.min(1000, Math.ceil(maxContentWidth + 28)));
+    ganttLabelWidth = desired;
+    document.documentElement.style.setProperty('--gantt-label-width', `${ganttLabelWidth}px`);
+}
+
+function measureLabelContentWidth(labelEl) {
+    const clone = labelEl.cloneNode(true);
+    clone.style.position = 'absolute';
+    clone.style.visibility = 'hidden';
+    clone.style.left = '-99999px';
+    clone.style.top = '0';
+    clone.style.width = 'max-content';
+    clone.style.maxWidth = 'none';
+    clone.style.overflow = 'visible';
+    clone.style.whiteSpace = 'nowrap';
+    clone.style.padding = getComputedStyle(labelEl).padding;
+
+    document.body.appendChild(clone);
+    const width = clone.scrollWidth;
+    clone.remove();
+    return width;
 }
 
 function setupGanttResizer() {
@@ -364,6 +399,7 @@ function setupGanttResizer() {
 
     resizer.addEventListener('mousedown', e => {
         e.preventDefault();
+        ganttLabelAutoSize = false;
         const startX = e.clientX;
         const startWidth = ganttLabelWidth;
         resizer.classList.add('is-dragging');
@@ -387,6 +423,13 @@ function setupGanttResizer() {
 
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
+    });
+
+    resizer.addEventListener('dblclick', e => {
+        e.preventDefault();
+        ganttLabelAutoSize = true;
+        autoSizeGanttLabelColumn(true);
+        resizer.style.left = ganttLabelWidth + 'px';
     });
 }
 
