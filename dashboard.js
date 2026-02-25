@@ -180,6 +180,7 @@ function renderDashboard() {
     renderGantt();
     renderSummaryCards();
     renderMetricsChart();
+    renderActiveItems();
     renderUrgentDeadlines();
     renderActiveWork();
     renderInReview();
@@ -673,10 +674,41 @@ function renderUrgentDeadlines() {
 
 // ─── Active Work ───────────────────────────────────────────────────────────────
 
+function renderActiveItems() {
+    const issues = getFilteredIssues();
+    const activeItems = issues
+        .filter(i => i.state.name === 'Active')
+        .sort((a, b) => {
+            const order = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'No priority': 4 };
+            const ap = order[a.priorityLabel] ?? 4;
+            const bp = order[b.priorityLabel] ?? 4;
+            if (ap !== bp) return ap - bp;
+            if (a.dueDate && !b.dueDate) return -1;
+            if (!a.dueDate && b.dueDate) return 1;
+            if (a.dueDate && b.dueDate) return parseLocalDate(a.dueDate) - parseLocalDate(b.dueDate);
+            return 0;
+        });
+
+    const container = document.getElementById('active-items');
+    const sortedActive = flattenIssueHierarchy(activeItems, (a, b) => {
+        const order = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'No priority': 4 };
+        const ap = order[a.priorityLabel] ?? 4;
+        const bp = order[b.priorityLabel] ?? 4;
+        if (ap !== bp) return ap - bp;
+        if (a.dueDate && !b.dueDate) return -1;
+        if (!a.dueDate && b.dueDate) return 1;
+        if (a.dueDate && b.dueDate) return parseLocalDate(a.dueDate) - parseLocalDate(b.dueDate);
+        return 0;
+    });
+    container.innerHTML = sortedActive.length === 0
+        ? '<p class="loading">No active items</p>'
+        : sortedActive.map(({ issue, depth }) => renderIssueItem(issue, false, depth)).join('');
+}
+
 function renderActiveWork() {
     const issues = getFilteredIssues();
     const activeIssues = issues
-        .filter(i => ['In Progress', 'Active'].includes(i.state.name))
+        .filter(i => i.state.name === 'In Progress')
         .sort((a, b) => {
             // Active before In Progress
             const statusOrd = { 'Active': 0, 'In Progress': 1 };
