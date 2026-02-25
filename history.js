@@ -45,6 +45,7 @@ async function fetchHistoryData() {
                     first: 1000
                     filter: {
                         team: { id: { eq: "${CONFIG.TEAM_ID}" } }
+                        state: { type: { eq: "completed" } }
                     }
                     orderBy: updatedAt
                 ) {
