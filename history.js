@@ -42,10 +42,9 @@ async function fetchHistoryData() {
         const data = await callWorker(`
             query {
                 issues(
-                    first: 500
+                    first: 1000
                     filter: {
                         team: { id: { eq: "${CONFIG.TEAM_ID}" } }
-                        state: { type: { eq: completed } }
                     }
                     orderBy: updatedAt
                 ) {
@@ -65,6 +64,7 @@ async function fetchHistoryData() {
         `);
 
         allClosedIssues = (data?.issues?.nodes || [])
+            .filter(i => i.state?.type === 'completed' || (i.state?.name || '').toLowerCase() === 'done')
             .map(i => {
                 const closedAt = i.completedAt || i.autoClosedAt || i.updatedAt;
                 return { ...i, closedAt, completedDate: closedAt ? parseDateOnly(closedAt) : null };
