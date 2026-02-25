@@ -79,9 +79,19 @@ header h1 {
     color: var(--text-light);
 }
 
-#last-updated {
+#last-updated,
+#history-last-updated {
     color: var(--text-light);
     font-size: 13px;
+}
+
+.header-home-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.header-home-link:hover {
+    text-decoration: underline;
 }
 
 .btn-refresh {

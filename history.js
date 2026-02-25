@@ -59,6 +59,7 @@ async function fetchHistoryData() {
                         updatedAt
                         state { name type }
                         assignee { name }
+                        project { name }
                     }
                 }
             }
@@ -73,7 +74,7 @@ async function fetchHistoryData() {
             .filter(i => i.completedDate);
 
         document.getElementById('history-last-updated').textContent =
-            `Updated: ${new Date().toLocaleTimeString()} (${allClosedIssues.length} closed issues loaded)`;
+            `Updated: ${new Date().toLocaleTimeString()}`;
 
         renderAssigneeCombobox();
     } catch (e) {
@@ -338,6 +339,9 @@ function renderClosedList(grouped) {
 }
 
 function renderClosedIssueItem(issue) {
+    const assignee = issue.assignee?.name ? `👤 ${escapeHtml(issue.assignee.name)}` : '';
+    const project = issue.project?.name ? `📁 ${escapeHtml(issue.project.name)}` : '';
+
     return `
         <div class="issue-item issue-state-done">
             <div class="issue-header">
@@ -348,8 +352,8 @@ function renderClosedIssueItem(issue) {
                 <span class="status-badge status-done">${escapeHtml(issue.state?.name || 'Done')}</span>
             </div>
             <div class="issue-meta">
-                ${issue.assignee?.name ? `<span>👤 ${escapeHtml(issue.assignee.name)}</span>` : ''}
-                <span>✅ Closed ${formatShortDate(issue.completedDate)}</span>
+                ${assignee ? `<span>${assignee}</span>` : ''}
+                ${project ? `<span>${project}</span>` : ''}
             </div>
         </div>
     `;
