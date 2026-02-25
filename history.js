@@ -42,7 +42,7 @@ async function fetchHistoryData() {
         const data = await callWorker(`
             query {
                 issues(
-                    first: 1000
+                    first: 250
                     filter: {
                         team: { id: { eq: "${CONFIG.TEAM_ID}" } }
                         state: { type: { eq: "completed" } }
@@ -73,11 +73,13 @@ async function fetchHistoryData() {
             .filter(i => i.completedDate);
 
         document.getElementById('history-last-updated').textContent =
-            `Updated: ${new Date().toLocaleTimeString()}`;
+            `Updated: ${new Date().toLocaleTimeString()} (${allClosedIssues.length} closed issues loaded)`;
 
         renderAssigneeCombobox();
     } catch (e) {
         console.error('History fetch failed:', e);
+        document.getElementById('history-last-updated').textContent =
+            `Updated: ${new Date().toLocaleTimeString()} (history load error)`;
     }
 }
 

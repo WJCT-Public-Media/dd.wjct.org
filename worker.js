@@ -17,6 +17,7 @@ const ALLOWED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
     'http://10.0.0.202:8000',
+    'http://hollister-home-server.tail32ad5b.ts.net:8000',
     'https://wjct-public-media.github.io',
     'https://dd.wjct.org',
 ];
@@ -36,7 +37,7 @@ export default {
             return new Response('Method Not Allowed', { status: 405 });
         }
 
-        if (!ALLOWED_ORIGINS.includes(origin)) {
+        if (!isAllowedOrigin(origin)) {
             return new Response('Forbidden', { status: 403 });
         }
 
@@ -63,8 +64,32 @@ export default {
     },
 };
 
+function isAllowedOrigin(origin) {
+    if (ALLOWED_ORIGINS.includes(origin)) return true;
+
+    try {
+        const url = new URL(origin);
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+
+        // Allow Tailscale direct-IP access to local dev server on port 8000.
+        if (url.protocol === 'http:' && url.port === '8000') {
+            const m = url.hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+            if (m) {
+                const a = Number(m[1]);
+                const b = Number(m[2]);
+                // Tailscale IPv4 CGNAT range: 100.64.0.0/10
+                if (a === 100 && b >= 64 && b <= 127) return true;
+            }
+        }
+    } catch {
+        return false;
+    }
+
+    return false;
+}
+
 function corsHeaders(origin) {
-    if (!ALLOWED_ORIGINS.includes(origin)) return {};
+    if (!isAllowedOrigin(origin)) return {};
     return {
         'Access-Control-Allow-Origin': origin,
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
