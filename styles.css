@@ -101,6 +101,22 @@ header h1 {
     transform: translateY(-1px);
 }
 
+.btn-nav {
+    display: inline-block;
+    background: #eef4fb;
+    color: var(--primary);
+    border: 1px solid #c9def5;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.btn-nav:hover {
+    background: #e0edf9;
+}
+
 /* Summary Cards */
 .summary-cards {
     display: grid;
@@ -217,6 +233,53 @@ header h1 {
     font-style: italic;
 }
 
+/* History view */
+.history-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.history-controls label {
+    font-size: 13px;
+    color: var(--text-light);
+}
+
+.history-select,
+.history-custom-dates input {
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    background: #fff;
+    color: var(--text);
+}
+
+.history-custom-dates {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.hidden { display: none !important; }
+
+.history-chart-container {
+    height: 340px;
+}
+
+.history-day-group {
+    margin-bottom: 18px;
+}
+
+.history-day-header {
+    font-size: 18px;
+    margin-bottom: 10px;
+    color: var(--primary);
+}
+
 /* Issue List */
 .issue-list {
     display: flex;
@@ -309,6 +372,7 @@ header h1 {
 .status-blocked     { background: #f8d7da; color: #721c24; }
 .status-in-review   { background: #d1ecf1; color: #0c5460; }
 .status-in-progress { background: #cce5ff; color: #004085; }
+.status-done        { background: #d4edda; color: #155724; }
 
 /* Chart */
 .chart-container {

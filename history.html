@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WJCT Digital Media Department — History</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1>WJCT Digital Media Department</h1>
+                <p class="subtitle">History View — Closed Issues Timeline</p>
+            </div>
+            <div class="header-meta">
+                <div class="header-meta-top">
+                    <a href="index.html" class="btn-nav">Dashboard</a>
+                    <span id="history-last-updated">Loading...</span>
+                    <button id="history-refresh-btn" class="btn-refresh">↻ Refresh</button>
+                </div>
+                <div class="header-assignee-filter">
+                    <label for="history-assignee-combobox">Assignee</label>
+                    <div class="combobox-wrapper header-combobox-wrapper">
+                        <input id="history-assignee-combobox" class="metrics-combobox" value="All" placeholder="All" aria-label="Filter history by assignee" autocomplete="off">
+                        <div id="history-assignee-dropdown" class="combobox-dropdown" style="display:none;"></div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <section class="section">
+            <div class="history-controls">
+                <label for="history-timeframe">Timeframe</label>
+                <select id="history-timeframe" class="history-select">
+                    <option value="week">This Week</option>
+                    <option value="month" selected>This Month</option>
+                    <option value="quarter">This Quarter</option>
+                    <option value="year">This Year</option>
+                    <option value="custom">Custom timeframe</option>
+                </select>
+                <div id="history-custom-dates" class="history-custom-dates hidden">
+                    <label for="history-start-date">Start</label>
+                    <input type="date" id="history-start-date">
+                    <label for="history-end-date">End</label>
+                    <input type="date" id="history-end-date">
+                </div>
+            </div>
+
+            <div class="summary-cards history-cards">
+                <div class="card card-done">
+                    <div class="card-icon">✅</div>
+                    <div class="card-content">
+                        <h3 id="history-closed-count">-</h3>
+                        <p>Closed Issues</p>
+                    </div>
+                </div>
+                <div class="card card-active">
+                    <div class="card-icon">📊</div>
+                    <div class="card-content">
+                        <h3 id="history-daily-average">-</h3>
+                        <p>Average / Day</p>
+                    </div>
+                </div>
+                <div class="card card-review">
+                    <div class="card-icon">🏁</div>
+                    <div class="card-content">
+                        <h3 id="history-busiest-day">-</h3>
+                        <p>Busiest Day</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-container history-chart-container">
+                <canvas id="history-chart"></canvas>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2>🗓️ Closed Issues by Day</h2>
+            <div id="history-closed-list" class="issue-list">
+                <p class="loading">Loading closed issues…</p>
+            </div>
+        </section>
+
+        <footer>
+            <p>WJCT Digital Media Department • History from Linear • Auto-refreshes every 10 minutes</p>
+        </footer>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="history.js"></script>
+</body>
+</html>
