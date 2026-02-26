@@ -36,6 +36,7 @@ function toggleProjectCompleted(id) {
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', async () => {
+    selectedAssignee = readAssigneeQueryParam();
     await fetchData();
     renderDashboard();
 
@@ -74,6 +75,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         assigneeCombo.addEventListener('blur', () => setTimeout(() => {
             selectedAssignee = normalizeAssigneeSelection(assigneeCombo.value);
             assigneeCombo.value = selectedAssignee;
+            updateAssigneeQueryParam(selectedAssignee);
             closeAssigneeDropdown();
             renderDashboard();
         }, 150));
@@ -973,6 +975,7 @@ function selectAssigneeOption(name) {
     if (!input) return;
     selectedAssignee = normalizeAssigneeSelection(name);
     input.value = selectedAssignee;
+    updateAssigneeQueryParam(selectedAssignee);
     closeAssigneeDropdown();
     renderDashboard();
 }
@@ -1012,13 +1015,35 @@ function handleAssigneeComboboxKey(event) {
 }
 
 function normalizeAssigneeSelection(value) {
-    const raw = (value || '').trim();
+    const raw = canonicalizeAssigneeInput(value);
     if (!raw || raw.toLowerCase() === 'all') return 'All';
 
     const available = getAvailableAssignees();
-    const matches = available.find(name => name.toLowerCase() === raw.toLowerCase());
+    const matches = available.find(name => canonicalizeAssigneeInput(name).toLowerCase() === raw.toLowerCase());
 
     return matches || 'All';
+}
+
+function canonicalizeAssigneeInput(value) {
+    return (value || '')
+        .replace(/[-_]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function readAssigneeQueryParam() {
+    const params = new URLSearchParams(window.location.search);
+    return canonicalizeAssigneeInput(params.get('assignee') || 'All') || 'All';
+}
+
+function updateAssigneeQueryParam(assignee) {
+    const params = new URLSearchParams(window.location.search);
+    if (!assignee || assignee === 'All') params.delete('assignee');
+    else params.set('assignee', assignee.replace(/\s+/g, '-'));
+
+    const qs = params.toString();
+    const next = `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash || ''}`;
+    history.replaceState(null, '', next);
 }
 
 function getFilteredIssues() {

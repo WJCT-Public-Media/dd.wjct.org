@@ -9,6 +9,7 @@ const timeframeState = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
+    selectedAssignee = readAssigneeQueryParam();
     await fetchHistoryData();
     renderHistory();
 
@@ -94,6 +95,7 @@ function setupAssigneeCombobox() {
     input.addEventListener('blur', () => setTimeout(() => {
         selectedAssignee = normalizeAssignee(input.value);
         input.value = selectedAssignee;
+        updateAssigneeQueryParam(selectedAssignee);
         closeAssigneeDropdown();
         renderHistory();
     }, 150));
@@ -112,9 +114,31 @@ function getAvailableAssignees() {
 }
 
 function normalizeAssignee(value) {
-    const raw = (value || '').trim();
+    const raw = canonicalizeAssigneeInput(value);
     if (!raw || raw.toLowerCase() === 'all') return 'All';
-    return getAvailableAssignees().find(n => n.toLowerCase() === raw.toLowerCase()) || 'All';
+    return getAvailableAssignees().find(n => canonicalizeAssigneeInput(n).toLowerCase() === raw.toLowerCase()) || 'All';
+}
+
+function canonicalizeAssigneeInput(value) {
+    return (value || '')
+        .replace(/[-_]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function readAssigneeQueryParam() {
+    const params = new URLSearchParams(window.location.search);
+    return canonicalizeAssigneeInput(params.get('assignee') || 'All') || 'All';
+}
+
+function updateAssigneeQueryParam(assignee) {
+    const params = new URLSearchParams(window.location.search);
+    if (!assignee || assignee === 'All') params.delete('assignee');
+    else params.set('assignee', assignee.replace(/\s+/g, '-'));
+
+    const qs = params.toString();
+    const next = `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash || ''}`;
+    history.replaceState(null, '', next);
 }
 
 function showAssigneeDropdown(query = '') {
@@ -141,6 +165,7 @@ function selectAssignee(name) {
     if (!input) return;
     selectedAssignee = normalizeAssignee(name);
     input.value = selectedAssignee;
+    updateAssigneeQueryParam(selectedAssignee);
     closeAssigneeDropdown();
     renderHistory();
 }

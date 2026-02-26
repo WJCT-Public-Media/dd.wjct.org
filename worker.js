@@ -71,8 +71,9 @@ function isAllowedOrigin(origin) {
         const url = new URL(origin);
         if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
 
-        // Allow Tailscale direct-IP access to local dev server on port 8000.
-        if (url.protocol === 'http:' && url.port === '8000') {
+        // Allow Tailscale direct-IP access from office/home.
+        // Support both default HTTP origin (:80 implied, port="") and explicit :8000 local dev.
+        if (url.protocol === 'http:' && (url.port === '' || url.port === '8000')) {
             const m = url.hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
             if (m) {
                 const a = Number(m[1]);
