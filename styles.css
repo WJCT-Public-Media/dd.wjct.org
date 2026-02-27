@@ -872,40 +872,17 @@ footer {
 }
 
 /* Milestone markers on project timeline */
-.gantt-milestone-wrap {
+.gantt-milestone {
     position: absolute;
     top: 50%;
-    transform: translate(-50%, -50%);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    z-index: 12;
-}
-
-.gantt-milestone {
+    transform: translate(-50%, -50%) rotate(45deg);
     width: 12px;
     height: 12px;
-    transform: rotate(45deg);
     background: var(--primary);
     border: 2px solid #fff;
     box-shadow: 0 0 0 1px rgba(0,0,0,0.15);
+    z-index: 12;
 }
-
-.gantt-milestone-progress {
-    font-size: 10px;
-    line-height: 1;
-    font-weight: 700;
-    color: #111827;
-    background: rgba(255,255,255,0.92);
-    border: 1px solid rgba(17,24,39,0.15);
-    border-radius: 999px;
-    padding: 2px 6px;
-    white-space: nowrap;
-}
-
-.gantt-milestone.milestone-upcoming { background: #3b82f6; }
-.gantt-milestone.milestone-today { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.25); }
-.gantt-milestone.milestone-passed { background: #6b7280; }
 
 
 

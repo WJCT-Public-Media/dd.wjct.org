@@ -158,9 +158,6 @@ async function fetchProjects() {
                                 id
                                 name
                                 targetDate
-                                progress
-                                currentProgress
-                                status
                             }
                         }
                     }
@@ -471,30 +468,8 @@ function renderProjectRow(project, today, rangeStart, totalMs, todayPct, rangeEn
         .map(m => {
             const d = parseLocalDate(m.targetDate);
             const pct = toGanttPct(d, rangeStart, totalMs);
-            const dayDiff = Math.round((d - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / (24 * 60 * 60 * 1000));
-            const milestoneStatus = dayDiff < 0 ? 'Passed' : (dayDiff === 0 ? 'Today' : 'Upcoming');
-            const milestoneClass = dayDiff < 0 ? ' milestone-passed' : (dayDiff === 0 ? ' milestone-today' : ' milestone-upcoming');
-
-            const rawProgress = m.progress ?? m.currentProgress ?? null;
-            let progressPct = null;
-            if (typeof rawProgress === 'number' && !Number.isNaN(rawProgress)) {
-                progressPct = rawProgress > 1 ? Math.round(rawProgress) : Math.round(rawProgress * 100);
-            } else if ((m.status || '').toLowerCase().includes('complet')) {
-                progressPct = 100;
-            } else if ((m.status || '').toLowerCase().includes('progress') || (m.status || '').toLowerCase().includes('started')) {
-                progressPct = 50;
-            } else if ((m.status || '').toLowerCase().includes('todo') || (m.status || '').toLowerCase().includes('planned')) {
-                progressPct = 0;
-            }
-            if (progressPct !== null) progressPct = Math.max(0, Math.min(100, progressPct));
-            const progressLabel = progressPct === null ? '—' : `${progressPct}%`;
-
-            const tip = encodeURIComponent(`${d.toLocaleDateString()} · ${m.name} · ${milestoneStatus} · ${progressLabel}`);
-            return `
-                <div class="gantt-milestone-wrap" style="left:${pct.toFixed(2)}%">
-                    <div class="gantt-milestone${milestoneClass}" data-milestone-tip="${tip}" aria-label="Milestone: ${escapeHtml(m.name)} (${milestoneStatus}, ${progressLabel})"></div>
-                    <div class="gantt-milestone-progress">${progressLabel}</div>
-                </div>`;
+            const tip = encodeURIComponent(`${d.toLocaleDateString()} · ${m.name}`);
+            return `<div class="gantt-milestone" style="left:${pct.toFixed(2)}%" data-milestone-tip="${tip}"></div>`;
         }).join('');
 
     const pillClass = ganttPillClass('', stateName, isOverdue);
