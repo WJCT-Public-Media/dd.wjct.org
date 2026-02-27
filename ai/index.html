@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Org Chart</title>
+  <style>
+    :root{
+      --bg:#f6f9ff; --panel:#ffffff; --text:#1f2a44; --muted:#5d6b8a; --line:#9bb2e8;
+      --card:#ffffff; --border:#cfdaf6; --shadow:0 8px 22px rgba(25,55,130,.12);
+      --live-bg:#e7faef; --live-bd:#8bd7a5; --live-tx:#136f37;
+      --plan-bg:#fff4dd; --plan-bd:#e8c47b; --plan-tx:#7a4a00;
+      --btn:#eaf0ff; --btn-bd:#bfd0ff;
+    }
+    body.dark{
+      --bg:#090f22; --panel:#0d1631; --text:#edf2ff; --muted:#a8b4d8; --line:#445da7;
+      --card:#111b39; --border:#2f4384; --shadow:0 10px 24px rgba(0,0,0,.35);
+      --live-bg:#173924; --live-bd:#3f8e5f; --live-tx:#b4f3c8;
+      --plan-bg:#3a2a12; --plan-bd:#8d6730; --plan-tx:#ffdca1;
+      --btn:#182346; --btn-bd:#3c56a1;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text)}
+    .wrap{width:100%;padding:22px 24px 40px}
+    .top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+    h1{margin:0;font-size:clamp(1.35rem,2.1vw,2.2rem)}
+    .sub{margin:.2rem 0 0;color:var(--muted)}
+    .toggle{border:1px solid var(--btn-bd);background:var(--btn);color:var(--text);padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600}
+
+    .chart-shell{background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:18px;overflow:auto}
+    .chart{position:relative;width:1600px;height:1120px;margin:0 auto}
+    .wires{position:absolute;inset:0;pointer-events:none}
+    .wires line{stroke:var(--line);stroke-width:2.5;stroke-linecap:round}
+    .node{position:absolute;width:250px;display:flex;gap:12px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;box-shadow:var(--shadow)}
+
+    .avatar{width:62px;height:62px;border-radius:50%;object-fit:cover;border:2px solid #7f96d8;background:#fff;flex:0 0 auto;cursor:zoom-in}
+    .name{font-weight:800;line-height:1.2}
+    .role{font-size:.92rem;color:var(--muted);line-height:1.2;margin-top:2px}
+    .pill{font-size:.74rem;padding:2px 8px;border-radius:999px;border:1px solid;margin-left:6px;vertical-align:middle;font-weight:700}
+    .pill.live{background:var(--live-bg);border-color:var(--live-bd);color:var(--live-tx)}
+    .pill.planned{background:var(--plan-bg);border-color:var(--plan-bd);color:var(--plan-tx)}
+    .legend{margin-top:14px;color:var(--muted);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+    /* Mobile layout */
+    .mobile{display:none}
+    .mobile .stack{display:grid;gap:10px}
+    .m-card{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;box-shadow:var(--shadow)}
+    .m-lines{position:relative;margin-left:34px;padding-left:14px;display:grid;gap:8px}
+    .m-lines > *{position:relative}
+    /* side stub into each item */
+    .m-lines > *::before{content:'';position:absolute;left:-14px;top:24px;width:14px;border-top:2px solid var(--line)}
+    /* vertical segment only between items (prevents hanging tails) */
+    .m-lines > *:not(:last-child)::after{content:'';position:absolute;left:-14px;top:24px;bottom:-8px;border-left:2px solid var(--line)}
+    /* start connector from parent into first child centerline */
+    .m-lines::before{content:'';position:absolute;left:-14px;top:-8px;height:32px;border-left:2px solid var(--line)}
+
+    details.branch{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:8px 10px;box-shadow:var(--shadow)}
+    details.branch summary{cursor:pointer;font-weight:700;list-style:none;position:relative}
+    details.branch summary::-webkit-details-marker{display:none}
+    .branch-content{margin-top:8px;display:grid;gap:8px;position:relative}
+    .branch-content > .m-card{position:relative}
+    /* connector from manager card down into the direct-report rail */
+    .branch-content > .m-card + .m-lines{margin-top:2px}
+    .branch-content > .m-card + .m-lines::before{content:'';position:absolute;left:34px;top:-8px;height:32px;border-left:2px solid var(--line)}
+
+    .lightbox{position:fixed;inset:0;background:rgba(8,12,24,.78);display:none;align-items:center;justify-content:center;z-index:9999;padding:24px}
+    .lightbox.open{display:flex}
+    .lightbox img{max-width:min(88vw,1000px);max-height:88vh;border-radius:14px;border:2px solid var(--border);box-shadow:0 20px 50px rgba(0,0,0,.45);background:#000}
+    .lightbox .close{position:absolute;top:18px;right:18px;border:1px solid var(--btn-bd);background:var(--btn);color:var(--text);padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:700}
+
+    @media (max-width: 1100px){
+      .desktop{display:none}
+      .mobile{display:block}
+      .wrap{padding:16px}
+      .chart-shell{padding:12px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>AI Org Chart</h1>
+        <p class="sub">Reporting structure for current and planned OpenClaw agents.</p>
+      </div>
+      <button class="toggle" id="themeToggle">Switch to Dark</button>
+    </div>
+
+    <div class="chart-shell desktop">
+      <div class="chart" id="chart">
+        <svg class="wires" id="wires" aria-hidden="true"></svg>
+
+        <div class="node" id="ray" style="left:700px;top:24px"><img class="avatar" src="assets/ray.jpg" alt="Ray" /><div><div class="name">Ray Hollister</div><div class="role">Principal / Human in Command</div></div></div>
+        <div class="node" id="ty" style="left:700px;top:165px"><img class="avatar" src="assets/ty.jpg" alt="Ty" /><div><div class="name">Ty (Tiberius) <span class="pill live">Live</span></div><div class="role">COO / Orchestrator</div></div></div>
+
+        <div class="node" id="fred" style="left:60px;top:345px"><img class="avatar" src="assets/fred.jpg" alt="Fred" /><div><div class="name">Fred <span class="pill live">Live</span></div><div class="role">WJCT Digital Department Project Manager</div></div></div>
+        <div class="node" id="jack" style="left:680px;top:345px"><img class="avatar" src="assets/jack.png" alt="Jack" /><div><div class="name">Jack <span class="pill live">Live</span></div><div class="role">JaxPlays Manager</div></div></div>
+        <div class="node" id="personal" style="left:1240px;top:345px"><img class="avatar" src="https://jaxplays.org/media/default/people_headshot.webp" alt="Personal" /><div><div class="name">Hollister <span class="pill planned">Planned</span></div><div class="role">TBD specialists (homelab / automation)</div></div></div>
+
+        <div class="node" id="oscar" style="left:230px;top:560px"><img class="avatar" src="assets/oscar.png" alt="Oscar" /><div><div class="name">Oscar <span class="pill live">Live</span></div><div class="role">WordPress / Pantheon / Lando / Terminus</div></div></div>
+        <div class="node" id="mcfeely" style="left:230px;top:700px"><img class="avatar" src="assets/mcfeely.jpg" alt="McFeely" /><div><div class="name">McFeely <span class="pill live">Live</span></div><div class="role">Inbox triage + communications</div></div></div>
+        <div class="node" id="count" style="left:230px;top:840px"><img class="avatar" src="assets/the-count.png" alt="The Count" /><div><div class="name">The Count <span class="pill live">Live</span></div><div class="role">Metrics / analytics / reports</div></div></div>
+
+        <div class="node" id="squip" style="left:850px;top:560px"><img class="avatar" src="https://jaxplays.org/media/default/people_headshot.webp" alt="SQUIP" /><div><div class="name">SQUIP <span class="pill planned">Planned</span></div><div class="role">Senior Hugo Developer</div></div></div>
+        <div class="node" id="addison" style="left:850px;top:700px"><img class="avatar" src="https://jaxplays.org/media/default/people_headshot.webp" alt="Addison" /><div><div class="name">Addison <span class="pill planned">Planned</span></div><div class="role">Senior Theatre Critic</div></div></div>
+        <div class="node" id="hermes" style="left:850px;top:840px"><img class="avatar" src="https://jaxplays.org/media/default/people_headshot.webp" alt="Hermes" /><div><div class="name">Hermes <span class="pill planned">Planned</span></div><div class="role">Executive Assistant</div></div></div>
+      </div>
+
+      <div class="legend">
+        <span class="pill live">Live</span> = currently built and active
+        <span class="pill planned">Planned</span> = roadmap / pending build-out
+      </div>
+      <p style="margin:.6rem 0 0;color:var(--muted)">Local preview: <code>http://127.0.0.1:8080/ai/</code></p>
+    </div>
+
+    <div class="chart-shell mobile">
+      <div class="stack">
+        <div class="m-card"><img class="avatar" src="assets/ray.jpg" alt="Ray" /><div><div class="name">Ray Hollister</div><div class="role">Principal / Human in Command</div></div></div>
+        <div class="m-lines">
+          <div class="m-card"><img class="avatar" src="assets/ty.jpg" alt="Ty" /><div><div class="name">Ty (Tiberius) <span class="pill live">Live</span></div><div class="role">COO / Orchestrator</div></div></div>
+
+          <details class="branch" open>
+            <summary>WJCT — Fred <span class="pill live">Live</span></summary>
+            <div class="branch-content">
+              <div class="m-card"><img class="avatar" src="assets/fred.jpg" alt="Fred" /><div><div class="name">Fred</div><div class="role">WJCT Digital Department Project Manager</div></div></div>
+              <div class="m-lines">
+                <div class="m-card"><img class="avatar" src="assets/oscar.png" alt="Oscar" /><div><div class="name">Oscar <span class="pill live">Live</span></div><div class="role">WordPress / Pantheon / Lando / Terminus</div></div></div>
+                <div class="m-card"><img class="avatar" src="assets/mcfeely.jpg" alt="McFeely" /><div><div class="name">McFeely <span class="pill live">Live</span></div><div class="role">Inbox triage + communications</div></div></div>
+                <div class="m-card"><img class="avatar" src="assets/the-count.png" alt="The Count" /><div><div class="name">The Count <span class="pill live">Live</span></div><div class="role">Metrics / analytics / reports</div></div></div>
+              </div>
+            </div>
+          </details>
+
+          <details class="branch" open>
+            <summary>JaxPlays — Jack <span class="pill live">Live</span></summary>
+            <div class="branch-content">
+              <div class="m-card"><img class="avatar" src="assets/jack.png" alt="Jack" /><div><div class="name">Jack</div><div class="role">JaxPlays Manager</div></div></div>
+              <div class="m-lines">
+                <div class="m-card"><img class="avatar" src="https://jaxplays.org/media/default/people_headshot.webp" alt="SQUIP" /><div><div class="name">SQUIP <span class="pill planned">Planned</span></div><div class="role">Senior Hugo Developer</div></div></div>
+                <div class="m-card"><img class="avatar" src="https://jaxplays.org/media/default/people_headshot.webp" alt="Addison" /><div><div class="name">Addison <span class="pill planned">Planned</span></div><div class="role">Senior Theatre Critic</div></div></div>
+                <div class="m-card"><img class="avatar" src="https://jaxplays.org/media/default/people_headshot.webp" alt="Hermes" /><div><div class="name">Hermes <span class="pill planned">Planned</span></div><div class="role">Executive Assistant</div></div></div>
+              </div>
+            </div>
+          </details>
+
+          <details class="branch">
+            <summary>Hollister <span class="pill planned">Planned</span></summary>
+            <div class="branch-content">
+              <div class="m-card"><img class="avatar" src="https://jaxplays.org/media/default/people_headshot.webp" alt="Personal" /><div><div class="name">Hollister</div><div class="role">TBD specialists (homelab / automation)</div></div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lightbox" id="avatarLightbox" aria-hidden="true">
+    <button class="close" id="avatarLightboxClose">Close</button>
+    <img id="avatarLightboxImg" alt="Avatar preview" />
+  </div>
+
+  <script>
+    const body=document.body,btn=document.getElementById('themeToggle');
+    const saved=localStorage.getItem('orgTheme');
+    if(saved==='dark') body.classList.add('dark');
+    btn.textContent=body.classList.contains('dark')?'Switch to Bright':'Switch to Dark';
+    btn.addEventListener('click',()=>{body.classList.toggle('dark');const d=body.classList.contains('dark');localStorage.setItem('orgTheme',d?'dark':'light');btn.textContent=d?'Switch to Bright':'Switch to Dark';requestAnimationFrame(drawWires)});
+
+    const lb=document.getElementById('avatarLightbox'),lbImg=document.getElementById('avatarLightboxImg'),lbClose=document.getElementById('avatarLightboxClose');
+    document.querySelectorAll('.avatar').forEach((img)=>img.addEventListener('click',()=>{lbImg.src=img.src;lb.classList.add('open');}));
+    function closeLightbox(){lb.classList.remove('open');lbImg.src=''}
+    lbClose.addEventListener('click',closeLightbox); lb.addEventListener('click',(e)=>{if(e.target===lb)closeLightbox()});
+    document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&lb.classList.contains('open'))closeLightbox()});
+
+    const chart=document.getElementById('chart'),wires=document.getElementById('wires');
+    function pt(id){const r=document.getElementById(id).getBoundingClientRect(),c=chart.getBoundingClientRect();return {left:r.left-c.left,right:r.right-c.left,top:r.top-c.top,bottom:r.bottom-c.top,cx:r.left-c.left+r.width/2,cy:r.top-c.top+r.height/2};}
+    function line(x1,y1,x2,y2){const l=document.createElementNS('http://www.w3.org/2000/svg','line');l.setAttribute('x1',x1);l.setAttribute('y1',y1);l.setAttribute('x2',x2);l.setAttribute('y2',y2);wires.appendChild(l)}
+    function drawWires(){
+      if(!chart||!wires||window.matchMedia('(max-width: 1100px)').matches) { if(wires) wires.innerHTML=''; return; }
+      wires.innerHTML=''; wires.setAttribute('viewBox',`0 0 ${chart.clientWidth} ${chart.clientHeight}`); wires.setAttribute('preserveAspectRatio','none');
+      const R={}; ['ray','ty','fred','jack','personal','oscar','mcfeely','count','squip','addison','hermes'].forEach(id=>R[id]=pt(id));
+      line(R.ray.cx,R.ray.bottom,R.ray.cx,R.ty.top);
+      const busY=R.ty.bottom+55;
+      line(R.ty.cx,R.ty.bottom,R.ty.cx,busY);
+      line(R.fred.cx,busY,R.personal.cx,busY);
+      line(R.fred.cx,busY,R.fred.cx,R.fred.top);
+      line(R.jack.cx,busY,R.jack.cx,R.jack.top);
+      line(R.personal.cx,busY,R.personal.cx,R.personal.top);
+      const fredTrunkX=R.fred.cx; line(fredTrunkX,R.fred.bottom,fredTrunkX,R.count.cy); ['oscar','mcfeely','count'].forEach(id=>line(fredTrunkX,R[id].cy,R[id].left,R[id].cy));
+      const jackTrunkX=R.jack.cx; line(jackTrunkX,R.jack.bottom,jackTrunkX,R.hermes.cy); ['squip','addison','hermes'].forEach(id=>line(jackTrunkX,R[id].cy,R[id].left,R[id].cy));
+    }
+    window.addEventListener('resize',drawWires); window.addEventListener('load',drawWires); setTimeout(drawWires,60);
+  </script>
+</body>
+</html>
