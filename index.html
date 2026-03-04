@@ -37,17 +37,23 @@
 
     <!-- Initiatives & Projects Gantt — full width -->
     <section class="section-full" id="gantt-section">
-        <div class="gantt-inner-header">
-            <h2>📅 Initiatives &amp; Projects</h2>
-            <div class="gantt-scale-controls">
+        <div class="gantt-inner-header" id="gantt-toggle" style="cursor:pointer; user-select:none;">
+            <h2><span id="gantt-toggle-icon" class="gantt-section-toggle-icon">▶</span> 📅 Initiatives &amp; Projects</h2>
+            <div class="gantt-scale-controls" id="gantt-controls">
                 <span class="gantt-scale-label">Range:</span>
-                <input type="number" id="gantt-range-input" class="gantt-range-input"
-                       min="1" max="120" step="1" value="12">
-                <span class="gantt-scale-label">months</span>
+                <div class="combobox-wrapper gantt-range-combobox-wrapper">
+                    <input id="gantt-range-combobox" class="metrics-combobox gantt-range-combobox" value="This Quarter" placeholder="This Quarter" aria-label="Gantt range preset" autocomplete="off">
+                    <div id="gantt-range-combobox-dropdown" class="combobox-dropdown" style="display:none;"></div>
+                </div>
+                <div id="gantt-custom-range" class="gantt-custom-range hidden">
+                    <input type="date" id="gantt-custom-start" class="gantt-custom-date-input">
+                    <span class="gantt-scale-label">to</span>
+                    <input type="date" id="gantt-custom-end" class="gantt-custom-date-input">
+                </div>
                 <span class="gantt-scale-hint">(Ctrl+scroll to zoom)</span>
             </div>
         </div>
-        <div id="gantt-chart">
+        <div id="gantt-chart" class="hidden">
             <p class="loading">Loading projects...</p>
         </div>
     </section>

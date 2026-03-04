@@ -5,11 +5,48 @@ let allInitiatives = [];
 let metricsChartInstance = null;
 let lastUpdate = null;
 let ganttRangeMonths = null; // null = span all data automatically
+let ganttRangePreset = 'This Quarter'; // active range preset
+let ganttCustomStart = null; // custom range start Date
+let ganttCustomEnd = null;   // custom range end Date
 let ganttLabelWidth = 240;   // px — updated by drag, persists across re-renders
 let ganttLabelAutoSize = true;
 let milestoneTooltips = [];
 let selectedAssignee = 'All';
+let ganttSectionExpanded = false; // collapsed by default
 const expandedAccordions = new Set();
+
+// Gantt range preset options
+const GANTT_RANGE_PRESETS = [
+    'This Month', 'This Quarter', 'This Year',
+    'Last Month', 'Last Quarter', 'Last Year',
+    'Custom Range'
+];
+
+// Compute start/end dates for a given preset
+function ganttPresetDates(preset) {
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    switch (preset) {
+        case 'This Month':
+            return { start: new Date(y, m, 1), end: new Date(y, m + 1, 0) };
+        case 'This Quarter': {
+            const q = Math.floor(m / 3) * 3;
+            return { start: new Date(y, q, 1), end: new Date(y, q + 3, 0) };
+        }
+        case 'This Year':
+            return { start: new Date(y, 0, 1), end: new Date(y, 11, 31) };
+        case 'Last Month':
+            return { start: new Date(y, m - 1, 1), end: new Date(y, m, 0) };
+        case 'Last Quarter': {
+            const q = Math.floor(m / 3) * 3 - 3;
+            return { start: new Date(y, q, 1), end: new Date(y, q + 3, 0) };
+        }
+        case 'Last Year':
+            return { start: new Date(y - 1, 0, 1), end: new Date(y - 1, 11, 31) };
+        default:
+            return null;
+    }
+}
 
 // Accordion toggle — called from inline onclick in Gantt HTML
 function toggleAccordion(key) {
@@ -52,19 +89,53 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderDashboard();
     });
 
-    // Gantt range input
-    const rangeInput = document.getElementById('gantt-range-input');
-    if (rangeInput) {
-        rangeInput.addEventListener('change', () => {
-            let v = parseInt(rangeInput.value, 10);
-            if (isNaN(v) || v < 1) v = 1;
-            if (v > 120) v = 120;
-            ganttRangeMonths = v;
-            rangeInput.value = v;
-            renderGantt();
+    // Gantt section accordion toggle
+    const ganttToggle = document.getElementById('gantt-toggle');
+    if (ganttToggle) {
+        ganttToggle.addEventListener('click', (e) => {
+            // Don't toggle when clicking inside controls
+            if (e.target.closest('.gantt-scale-controls')) return;
+            ganttSectionExpanded = !ganttSectionExpanded;
+            const chart = document.getElementById('gantt-chart');
+            const icon = document.getElementById('gantt-toggle-icon');
+            if (ganttSectionExpanded) {
+                chart.classList.remove('hidden');
+                icon.classList.add('expanded');
+            } else {
+                chart.classList.add('hidden');
+                icon.classList.remove('expanded');
+            }
         });
-        rangeInput.addEventListener('keydown', e => { if (e.key === 'Enter') rangeInput.blur(); });
     }
+
+    // Gantt range combobox
+    const rangeCombo = document.getElementById('gantt-range-combobox');
+    if (rangeCombo) {
+        rangeCombo.addEventListener('focus', () => showGanttRangeDropdown());
+        rangeCombo.addEventListener('input', () => showGanttRangeDropdown(rangeCombo.value));
+        rangeCombo.addEventListener('keydown', handleGanttRangeComboboxKey);
+        rangeCombo.addEventListener('blur', () => setTimeout(() => {
+            closeGanttRangeDropdown();
+        }, 150));
+    }
+
+    // Custom date range inputs
+    const customStart = document.getElementById('gantt-custom-start');
+    const customEnd = document.getElementById('gantt-custom-end');
+    if (customStart && customEnd) {
+        const onCustomChange = () => {
+            if (customStart.value && customEnd.value) {
+                ganttCustomStart = parseLocalDate(customStart.value);
+                ganttCustomEnd = parseLocalDate(customEnd.value);
+                renderGantt();
+            }
+        };
+        customStart.addEventListener('change', onCustomChange);
+        customEnd.addEventListener('change', onCustomChange);
+    }
+
+    // Apply default preset (This Quarter)
+    applyGanttPreset('This Quarter');
 
     // Assignee combobox filter
     const assigneeCombo = document.getElementById('assignee-combobox');
@@ -89,8 +160,56 @@ document.addEventListener('DOMContentLoaded', async () => {
         const current = ganttRangeMonths ?? computeDataRangeMonths();
         const raw = Math.max(1, Math.min(120, current * (1 + e.deltaY / 250)));
         ganttRangeMonths = Math.max(1, Math.round(trySnapMonths(raw)));
+        ganttRangePreset = null; // clear preset on manual zoom
         renderGantt();
     }, { passive: false });
+
+    // Drag-to-scroll on the Gantt chart
+    const ganttChart = document.getElementById('gantt-chart');
+    if (ganttChart) {
+        let isDragging = false;
+        let didDrag = false; // true if mouse moved enough to count as a drag
+        let startX = 0;
+        let scrollStart = 0;
+        const DRAG_THRESHOLD = 4; // px — movement below this is a click, not a drag
+
+        ganttChart.addEventListener('mousedown', e => {
+            // Don't start drag on links, inputs, or interactive elements
+            if (e.target.closest('a, input, button, .gantt-label-resizer')) return;
+            isDragging = true;
+            didDrag = false;
+            startX = e.clientX;
+            scrollStart = ganttChart.scrollLeft;
+        });
+
+        window.addEventListener('mousemove', e => {
+            if (!isDragging) return;
+            const dx = e.clientX - startX;
+            if (!didDrag && Math.abs(dx) >= DRAG_THRESHOLD) {
+                didDrag = true;
+                ganttChart.classList.add('is-dragging');
+            }
+            if (didDrag) {
+                e.preventDefault();
+                ganttChart.scrollLeft = scrollStart - dx;
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (!isDragging) return;
+            isDragging = false;
+            ganttChart.classList.remove('is-dragging');
+        });
+
+        // Suppress click events that follow a drag (prevents toggling accordions/projects)
+        ganttChart.addEventListener('click', e => {
+            if (didDrag) {
+                e.stopPropagation();
+                e.preventDefault();
+                didDrag = false;
+            }
+        }, true); // capture phase so it fires before onclick handlers
+    }
 
 });
 
@@ -205,40 +324,57 @@ function renderGantt() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Date range
-    const allDates = allProjects
-        .flatMap(p => [p.startDate, p.targetDate].filter(Boolean))
-        .map(d => parseLocalDate(d));
-
-    let rangeStart, rangeEnd;
-    if (ganttRangeMonths === null) {
-        if (allDates.length > 0) {
-            const minDate = new Date(Math.min(...allDates));
-            const maxDate = new Date(Math.max(...allDates));
-            rangeStart = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
-            rangeEnd   = new Date(maxDate.getFullYear(), maxDate.getMonth() + 2, 0);
-        } else {
-            rangeStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            rangeEnd   = new Date(today.getFullYear(), today.getMonth() + 4, 0);
-        }
-    } else {
-        rangeStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-        rangeEnd   = new Date(rangeStart.getFullYear(), rangeStart.getMonth() + ganttRangeMonths, 0);
+    // Selected view range — driven by preset or custom range
+    let viewStart, viewEnd;
+    if (ganttRangePreset === 'Custom Range' && ganttCustomStart && ganttCustomEnd) {
+        viewStart = new Date(ganttCustomStart);
+        viewEnd = new Date(ganttCustomEnd);
+    } else if (ganttRangePreset && ganttRangePreset !== 'Custom Range') {
+        const pd = ganttPresetDates(ganttRangePreset);
+        if (pd) { viewStart = pd.start; viewEnd = pd.end; }
     }
-    if (today < rangeStart) rangeStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    if (today > rangeEnd)   rangeEnd   = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+    // Fallback if no preset produced a range (e.g. after ctrl+scroll override)
+    if (!viewStart || !viewEnd) {
+        if (ganttRangeMonths !== null) {
+            viewStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            viewEnd   = new Date(viewStart.getFullYear(), viewStart.getMonth() + ganttRangeMonths, 0);
+        } else {
+            const allDates = allProjects
+                .flatMap(p => [p.startDate, p.targetDate].filter(Boolean))
+                .map(d => parseLocalDate(d));
+            if (allDates.length > 0) {
+                const minDate = new Date(Math.min(...allDates));
+                const maxDate = new Date(Math.max(...allDates));
+                viewStart = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+                viewEnd   = new Date(maxDate.getFullYear(), maxDate.getMonth() + 2, 0);
+            } else {
+                viewStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                viewEnd   = new Date(today.getFullYear(), today.getMonth() + 4, 0);
+            }
+        }
+    }
+
+    // Extend render range beyond the selected view so users can scroll to see more
+    const viewMs = viewEnd - viewStart;
+    const padMs = viewMs; // pad by the full view duration on each side
+    const rangeStart = new Date(viewStart.getTime() - padMs);
+    const rangeEnd   = new Date(viewEnd.getTime() + padMs);
 
     const totalMs  = rangeEnd - rangeStart;
     const todayPct = toGanttPct(today, rangeStart, totalMs);
 
-    // Dynamic timeline width: zoom in = wider canvas (more px/month)
+    // The visible portion as a fraction of the full rendered range (for sizing)
+    const viewMonths = Math.max(1, Math.round(viewMs / (30.44 * 24 * 60 * 60 * 1000)));
     const effectiveMonths = Math.max(1, Math.round(totalMs / (30.44 * 24 * 60 * 60 * 1000)));
-    const timelineMinWidth = Math.max(700, Math.min(5000, Math.round(6000 / effectiveMonths)));
 
-    // Update range input without interrupting active typing
-    const rangeInput = document.getElementById('gantt-range-input');
-    if (rangeInput && document.activeElement !== rangeInput) {
-        rangeInput.value = effectiveMonths;
+    // Timeline width: make the view range fill roughly the container, so the
+    // full rendered range (3× the view) is wider and scrollable
+    const timelineMinWidth = Math.max(700, Math.round(Math.max(700, Math.min(5000, Math.round(6000 / viewMonths))) * (effectiveMonths / viewMonths)));
+
+    // Update range combobox display (no-op during active typing)
+    const rangeCombo = document.getElementById('gantt-range-combobox');
+    if (rangeCombo && document.activeElement !== rangeCombo) {
+        rangeCombo.value = ganttRangePreset || `${viewMonths} months`;
     }
 
     // Month markers
@@ -329,20 +465,66 @@ function renderGantt() {
 
     // Month label header
     let monthLabels = '';
+    // Alternating calendar year bands
+    let yearBands = '';
+    let prevYearStart = null;
+    let prevYear = null;
+
     months.forEach(mo => {
         const pct   = toGanttPct(mo, rangeStart, totalMs);
-        const label = mo.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+        const label = mo.toLocaleDateString('en-US', { month: 'long' });
+        const month = mo.getMonth(); // 0=Jan
+        const year  = mo.getFullYear();
+
+        // Determine boundary classes
+        let lineClass = 'gantt-grid-line';
+        let extraMarkup = '';
+
+        if (month === 0) {
+            // January = calendar year boundary (line between Dec and Jan)
+            lineClass += ' gantt-grid-line-cy';
+            extraMarkup += `<div class="gantt-year-label gantt-cy-label">CY ${year}</div>`;
+        }
+        if (month === 9) {
+            // October = fiscal year boundary (line between Sep and Oct)
+            lineClass += ' gantt-grid-line-fy';
+            const fy = year + 1; // FY starts in Oct, named for the ending year
+            extraMarkup += `<div class="gantt-year-label gantt-fy-label">FY ${fy}</div>`;
+        }
+
+        // Alternating calendar year bands
+        if (prevYear !== null && year !== prevYear) {
+            // Close previous band
+            const bandStartPct = toGanttPct(prevYearStart, rangeStart, totalMs);
+            const bandClass = prevYear % 2 === 0 ? 'gantt-year-band-even' : 'gantt-year-band-odd';
+            yearBands += `<div class="gantt-year-band ${bandClass}" style="left:${bandStartPct.toFixed(2)}%;width:${(pct - bandStartPct).toFixed(2)}%"></div>`;
+            prevYearStart = mo;
+        }
+        if (prevYearStart === null) {
+            prevYearStart = mo;
+        }
+        prevYear = year;
+
         monthLabels += `<div class="gantt-month-mark" style="left:${pct.toFixed(2)}%">
-            <div class="gantt-grid-line"></div>
+            <div class="${lineClass}"></div>
             <div class="gantt-month-label">${label}</div>
+            ${extraMarkup}
         </div>`;
     });
+
+    // Close final year band
+    if (prevYearStart !== null) {
+        const bandStartPct = toGanttPct(prevYearStart, rangeStart, totalMs);
+        const bandClass = prevYear % 2 === 0 ? 'gantt-year-band-even' : 'gantt-year-band-odd';
+        yearBands += `<div class="gantt-year-band ${bandClass}" style="left:${bandStartPct.toFixed(2)}%;width:${(100 - bandStartPct).toFixed(2)}%"></div>`;
+    }
 
     container.innerHTML = `
         <div class="gantt-wrap" style="--gantt-tl-width:${timelineMinWidth}px">
             <div class="gantt-row gantt-header-row">
                 <div class="gantt-label"></div>
                 <div class="gantt-timeline gantt-header-timeline">
+                    ${yearBands}
                     ${monthLabels}
                     <div class="gantt-today-line gantt-today-header" style="left:${todayPct.toFixed(2)}%">
                         <span class="gantt-today-label">Today</span>
@@ -354,7 +536,15 @@ function renderGantt() {
 
     autoSizeGanttLabelColumn();
     setupGanttResizer();
-    initMilestoneTooltips();
+    initGanttTooltips();
+
+    // Scroll so the selected view range is visible (viewStart aligned to left edge)
+    // Use the actual timeline element width (not scrollWidth, which includes the sticky label column)
+    const firstTimeline = container.querySelector('.gantt-timeline');
+    if (firstTimeline) {
+        const viewStartPct = (viewStart - rangeStart) / totalMs;
+        container.scrollLeft = Math.round(firstTimeline.offsetWidth * viewStartPct);
+    }
 }
 
 function autoSizeGanttLabelColumn(force = false) {
@@ -396,8 +586,18 @@ function setupGanttResizer() {
 
     const resizer = document.createElement('div');
     resizer.className = 'gantt-label-resizer';
-    resizer.style.left = ganttLabelWidth + 'px';
+    // Position accounts for horizontal scroll so resizer stays at label edge
+    const updateResizerPos = () => {
+        resizer.style.left = (ganttLabelWidth + container.scrollLeft) + 'px';
+    };
+    updateResizerPos();
     container.appendChild(resizer);
+
+    // On scroll: pin labels in place via CSS variable and keep resizer aligned
+    container.addEventListener('scroll', () => {
+        container.style.setProperty('--gantt-scroll-offset', container.scrollLeft + 'px');
+        updateResizerPos();
+    });
 
     resizer.addEventListener('mousedown', e => {
         e.preventDefault();
@@ -412,7 +612,7 @@ function setupGanttResizer() {
             const dx = e.clientX - startX;
             ganttLabelWidth = Math.max(120, Math.min(1000, startWidth + dx));
             document.documentElement.style.setProperty('--gantt-label-width', ganttLabelWidth + 'px');
-            resizer.style.left = ganttLabelWidth + 'px';
+            updateResizerPos();
         };
 
         const onUp = () => {
@@ -431,7 +631,7 @@ function setupGanttResizer() {
         e.preventDefault();
         ganttLabelAutoSize = true;
         autoSizeGanttLabelColumn(true);
-        resizer.style.left = ganttLabelWidth + 'px';
+        updateResizerPos();
     });
 }
 
@@ -566,7 +766,7 @@ function renderIssueGanttRow(issue, rangeStart, totalMs, todayPct, depth = 0) {
         const pct      = toGanttPct(dueDate, rangeStart, totalMs);
         const dotClass = ganttIssueDotClass(stateName, isOverdue);
         const tipText  = `${issue.identifier}: ${issue.title} · Due ${dueDate.toLocaleDateString()}`;
-        timelineContent = `<div class="gantt-issue-dot ${dotClass}" style="left:${pct.toFixed(2)}%" title="${escapeHtml(tipText)}"></div>`;
+        timelineContent = `<div class="gantt-issue-dot ${dotClass}" style="left:${pct.toFixed(2)}%" data-issue-tip="${encodeURIComponent(tipText)}"></div>`;
     }
 
     const pillClass = ganttIssuePillClass(stateName, isOverdue);
@@ -637,35 +837,40 @@ function ganttPillClass(type, name, isOverdue) {
     return 'pill-default';
 }
 
-function initMilestoneTooltips() {
+function initGanttTooltips() {
     milestoneTooltips.forEach(t => t.destroy());
     milestoneTooltips = [];
 
     if (typeof tippy !== 'function') return;
 
+    const sharedOpts = {
+        theme: 'milestone',
+        trigger: 'mouseenter focus',
+        placement: 'bottom',
+        delay: [0, 2200],
+        duration: [120, 180],
+        offset: [0, 10],
+        interactive: false,
+        appendTo: () => document.body,
+        onShow(instance) {
+            milestoneTooltips.forEach(other => {
+                if (other !== instance) other.hide(0);
+            });
+        },
+    };
+
+    // Milestone tooltips
     document.querySelectorAll('.gantt-milestone').forEach(el => {
         const encoded = el.getAttribute('data-milestone-tip');
         if (!encoded) return;
-        const content = decodeURIComponent(encoded);
+        milestoneTooltips.push(tippy(el, { ...sharedOpts, content: decodeURIComponent(encoded) }));
+    });
 
-        const tip = tippy(el, {
-            content,
-            theme: 'milestone',
-            trigger: 'mouseenter focus',
-            placement: 'bottom',
-            delay: [0, 2200],
-            duration: [120, 180],
-            offset: [0, 10],
-            interactive: false,
-            appendTo: () => document.body,
-            onShow(instance) {
-                milestoneTooltips.forEach(other => {
-                    if (other !== instance) other.hide(0);
-                });
-            },
-        });
-
-        milestoneTooltips.push(tip);
+    // Issue due-date dot tooltips
+    document.querySelectorAll('.gantt-issue-dot').forEach(el => {
+        const encoded = el.getAttribute('data-issue-tip');
+        if (!encoded) return;
+        milestoneTooltips.push(tippy(el, { ...sharedOpts, content: decodeURIComponent(encoded) }));
     });
 }
 
@@ -1150,4 +1355,91 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ─── Gantt Range Combobox ───────────────────────────────────────────────────
+
+function applyGanttPreset(preset) {
+    ganttRangePreset = preset;
+    ganttRangeMonths = null;
+    const combo = document.getElementById('gantt-range-combobox');
+    if (combo) combo.value = preset;
+
+    const customDiv = document.getElementById('gantt-custom-range');
+    if (preset === 'Custom Range') {
+        customDiv?.classList.remove('hidden');
+        // Seed custom inputs with current quarter if empty
+        const cs = document.getElementById('gantt-custom-start');
+        const ce = document.getElementById('gantt-custom-end');
+        if (cs && !cs.value) {
+            const pd = ganttPresetDates('This Quarter');
+            cs.value = toISODate(pd.start);
+            ce.value = toISODate(pd.end);
+            ganttCustomStart = pd.start;
+            ganttCustomEnd = pd.end;
+        }
+    } else {
+        customDiv?.classList.add('hidden');
+    }
+    renderGantt();
+}
+
+function toISODate(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function showGanttRangeDropdown(filter) {
+    const dd = document.getElementById('gantt-range-combobox-dropdown');
+    if (!dd) return;
+    const lc = (filter || '').toLowerCase();
+    const opts = GANTT_RANGE_PRESETS.filter(p => !lc || p.toLowerCase().includes(lc));
+    if (opts.length === 0) {
+        dd.innerHTML = '<div class="combobox-empty">No matches</div>';
+    } else {
+        dd.innerHTML = opts.map(p =>
+            `<div class="combobox-option${p === ganttRangePreset ? ' active' : ''}" data-value="${escapeHtml(p)}">${escapeHtml(p)}</div>`
+        ).join('');
+        dd.querySelectorAll('.combobox-option').forEach(el => {
+            el.addEventListener('mousedown', e => {
+                e.preventDefault();
+                applyGanttPreset(el.dataset.value);
+                closeGanttRangeDropdown();
+                document.getElementById('gantt-range-combobox')?.blur();
+            });
+        });
+    }
+    dd.style.display = '';
+}
+
+function closeGanttRangeDropdown() {
+    const dd = document.getElementById('gantt-range-combobox-dropdown');
+    if (dd) dd.style.display = 'none';
+}
+
+function handleGanttRangeComboboxKey(e) {
+    const dd = document.getElementById('gantt-range-combobox-dropdown');
+    if (!dd) return;
+    const items = [...dd.querySelectorAll('.combobox-option')];
+    const activeIdx = items.findIndex(el => el.classList.contains('active'));
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = Math.min(activeIdx + 1, items.length - 1);
+        items.forEach((el, i) => el.classList.toggle('active', i === next));
+        items[next]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = Math.max(activeIdx - 1, 0);
+        items.forEach((el, i) => el.classList.toggle('active', i === prev));
+        items[prev]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const sel = items[activeIdx >= 0 ? activeIdx : 0];
+        if (sel) applyGanttPreset(sel.dataset.value);
+        closeGanttRangeDropdown();
+        e.target.blur();
+    } else if (e.key === 'Escape') {
+        closeGanttRangeDropdown();
+        e.target.blur();
+    }
 }

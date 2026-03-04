@@ -15,6 +15,7 @@ const LINEAR_API = 'https://api.linear.app/graphql';
 
 const ALLOWED_ORIGINS = [
     'http://localhost:8000',
+    'http://localhost:8080',
     'http://127.0.0.1:8000',
     'http://10.0.0.202:8000',
     'http://hollister-home-server.tail32ad5b.ts.net:8000',

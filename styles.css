@@ -417,7 +417,7 @@ footer {
     min-height: 54px;
 }
 
-/* Fixed-width label column — sticky so it stays visible when timeline scrolls */
+/* Fixed-width label column — pinned via JS translateX so it stays visible when timeline scrolls */
 .gantt-label {
     flex: 0 0 auto;
     width: var(--gantt-label-width, 240px);
@@ -429,10 +429,11 @@ footer {
     gap: 6px;
     overflow: hidden;
     white-space: nowrap;
-    position: sticky;
-    left: 0;
+    position: relative;
     z-index: 20;
     background: inherit;
+    transform: translateX(var(--gantt-scroll-offset, 0px));
+    will-change: transform;
 }
 
 .gantt-header-row { background: var(--card-bg); }
@@ -468,7 +469,7 @@ footer {
 }
 
 .gantt-header-timeline {
-    min-height: 44px;
+    min-height: 50px;
 }
 
 /* Month grid markers (in header only) */
@@ -491,12 +492,60 @@ footer {
 
 .gantt-month-label {
     position: absolute;
-    top: 4px;
+    top: 22px;
     font-size: 11px;
     color: var(--text-light);
     white-space: nowrap;
     padding-left: 4px;
     user-select: none;
+}
+
+/* Calendar year boundary (Dec/Jan) */
+.gantt-grid-line-cy {
+    width: 2px;
+    background: #6c757d;
+}
+
+/* Fiscal year boundary (Sep/Oct) */
+.gantt-grid-line-fy {
+    width: 2px;
+    background: repeating-linear-gradient(
+        to bottom,
+        #6c757d 0px, #6c757d 4px,
+        transparent 4px, transparent 8px
+    );
+}
+
+/* Year boundary labels */
+.gantt-year-label {
+    position: absolute;
+    top: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+    padding-left: 4px;
+    user-select: none;
+}
+.gantt-cy-label {
+    color: #495057;
+}
+.gantt-fy-label {
+    color: #7c5e10;
+}
+
+/* Alternating calendar year bands */
+.gantt-year-band {
+    position: absolute;
+    top: 0;
+    bottom: -9999px;
+    pointer-events: none;
+    z-index: 0;
+}
+.gantt-year-band-even {
+    background: rgba(0, 0, 0, 0.02);
+}
+.gantt-year-band-odd {
+    background: transparent;
 }
 
 /* Today vertical line */
@@ -516,7 +565,7 @@ footer {
 
 .gantt-today-label {
     position: absolute;
-    top: 26px;
+    top: 4px;
     left: 4px;
     font-size: 10px;
     font-weight: 600;
@@ -655,6 +704,14 @@ footer {
 /* Gantt chart container — needed for absolute resizer positioning */
 #gantt-chart {
     position: relative;
+    overflow-x: auto;
+    overflow-y: hidden;
+    cursor: grab;
+}
+
+#gantt-chart.is-dragging {
+    cursor: grabbing;
+    user-select: none;
 }
 
 /* Draggable column-resize handle between label and timeline */
@@ -667,6 +724,7 @@ footer {
     cursor: col-resize;
     z-index: 25;
     user-select: none;
+    pointer-events: auto;
 }
 
 .gantt-label-resizer::after {
@@ -756,6 +814,51 @@ footer {
     white-space: nowrap;
 }
 
+/* Gantt section accordion toggle */
+.gantt-section-toggle-icon {
+    display: inline-block;
+    font-size: 14px;
+    transition: transform 0.2s;
+    margin-right: 4px;
+}
+
+.gantt-section-toggle-icon.expanded {
+    transform: rotate(90deg);
+}
+
+/* Gantt range combobox */
+.gantt-range-combobox-wrapper {
+    min-width: 160px;
+}
+
+.gantt-range-combobox {
+    min-width: 160px !important;
+    cursor: pointer;
+}
+
+/* Custom date range inputs */
+.gantt-custom-range {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.gantt-custom-date-input {
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: inherit;
+    background: white;
+    color: var(--text);
+}
+
+.gantt-custom-date-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(0,102,204,0.15);
+}
+
 /* Accordion toggle row */
 .gantt-accordion-row {
     background: #f0f4f8;
@@ -808,6 +911,11 @@ footer {
 .gantt-issue-row {
     background: #f5f8ff;
     min-height: 36px;
+}
+
+/* Ensure issue-row labels are opaque so timeline content doesn't bleed through when sticky */
+.gantt-issue-row > .gantt-label {
+    background: #f5f8ff;
 }
 
 .gantt-issue-row.issue-state-backlog { background: rgba(108, 117, 125, 0.15); }
@@ -891,8 +999,8 @@ footer {
     position: absolute;
     top: 50%;
     transform: translate(-50%, -50%);
-    width: 10px;
-    height: 10px;
+    width: 15px;
+    height: 15px;
     border-radius: 50%;
     z-index: 8;
 }
