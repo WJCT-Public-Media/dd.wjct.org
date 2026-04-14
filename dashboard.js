@@ -302,9 +302,9 @@ function renderDashboard() {
     renderGantt();
     renderSummaryCards();
     renderMetricsChart();
-    renderActiveItems();
     renderUrgentDeadlines();
     renderActiveWork();
+    renderTodoItems();
     renderInReview();
     renderBlockedIssues();
     renderPendingWaiting();
@@ -924,37 +924,6 @@ function renderUrgentDeadlines() {
 
 // ─── Active Work ───────────────────────────────────────────────────────────────
 
-function renderActiveItems() {
-    const issues = getFilteredIssues();
-    const activeItems = issues
-        .filter(i => i.state.name === 'Active')
-        .sort((a, b) => {
-            const order = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'No priority': 4 };
-            const ap = order[a.priorityLabel] ?? 4;
-            const bp = order[b.priorityLabel] ?? 4;
-            if (ap !== bp) return ap - bp;
-            if (a.dueDate && !b.dueDate) return -1;
-            if (!a.dueDate && b.dueDate) return 1;
-            if (a.dueDate && b.dueDate) return parseLocalDate(a.dueDate) - parseLocalDate(b.dueDate);
-            return 0;
-        });
-
-    const container = document.getElementById('active-items');
-    const sortedActive = flattenIssueHierarchy(activeItems, (a, b) => {
-        const order = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'No priority': 4 };
-        const ap = order[a.priorityLabel] ?? 4;
-        const bp = order[b.priorityLabel] ?? 4;
-        if (ap !== bp) return ap - bp;
-        if (a.dueDate && !b.dueDate) return -1;
-        if (!a.dueDate && b.dueDate) return 1;
-        if (a.dueDate && b.dueDate) return parseLocalDate(a.dueDate) - parseLocalDate(b.dueDate);
-        return 0;
-    });
-    container.innerHTML = sortedActive.length === 0
-        ? '<p class="loading">No active items</p>'
-        : sortedActive.map(({ issue, depth }) => renderIssueItem(issue, false, depth)).join('');
-}
-
 function renderActiveWork() {
     const issues = getFilteredIssues();
     const activeIssues = issues
@@ -991,6 +960,40 @@ function renderActiveWork() {
     container.innerHTML = sortedActive.length === 0
         ? '<p class="loading">No active work</p>'
         : sortedActive.map(({ issue, depth }) => renderIssueItem(issue, false, depth)).join('');
+}
+
+function renderTodoItems() {
+    const issues = getFilteredIssues();
+    const todoIssues = issues
+        .filter(i => i.state.name === 'Todo')
+        .sort((a, b) => {
+            const statusOrd = { 'Todo': 0, 'Backlog': 1 };
+            const so = (statusOrd[a.state.name] ?? 2) - (statusOrd[b.state.name] ?? 2);
+            if (so !== 0) return so;
+            const order = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'No priority': 4 };
+            const ap = order[a.priorityLabel] ?? 4;
+            const bp = order[b.priorityLabel] ?? 4;
+            if (ap !== bp) return ap - bp;
+            if (a.dueDate && !b.dueDate) return -1;
+            if (!a.dueDate && b.dueDate) return 1;
+            if (a.dueDate && b.dueDate) return parseLocalDate(a.dueDate) - parseLocalDate(b.dueDate);
+            return 0;
+        });
+
+    const container = document.getElementById('todo-items');
+    const sortedTodo = flattenIssueHierarchy(todoIssues, (a, b) => {
+        const order = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'No priority': 4 };
+        const ap = order[a.priorityLabel] ?? 4;
+        const bp = order[b.priorityLabel] ?? 4;
+        if (ap !== bp) return ap - bp;
+        if (a.dueDate && !b.dueDate) return -1;
+        if (!a.dueDate && b.dueDate) return 1;
+        if (a.dueDate && b.dueDate) return parseLocalDate(a.dueDate) - parseLocalDate(b.dueDate);
+        return 0;
+    });
+    container.innerHTML = sortedTodo.length === 0
+        ? '<p class="loading">No to do items</p>'
+        : sortedTodo.map(({ issue, depth }) => renderIssueItem(issue, false, depth)).join('');
 }
 
 // ─── In Review ─────────────────────────────────────────────────────────────────
