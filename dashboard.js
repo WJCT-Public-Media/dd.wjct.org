@@ -1098,7 +1098,7 @@ function renderMetricsChart() {
 
     const statusCounts = {
         'Backlog': 0, 'Todo': 0, 'In Progress': 0,
-        'Active': 0, 'Waiting': 0, 'Blocked': 0, 'In Review': 0, 'Done': 0
+        'Waiting': 0, 'Blocked': 0, 'In Review': 0, 'Done': 0
     };
     issues.forEach(issue => {
         const stateName = issue.state.name === 'Pending' ? 'Waiting' : issue.state.name;
@@ -1122,7 +1122,7 @@ function renderMetricsChart() {
                 data: Object.values(statusCounts),
                 backgroundColor: [
                     '#6c757d', '#ffc107', '#fd7e14',
-                    '#dc3545', '#0066cc', '#6c757d', '#17a2b8', '#28a745'
+                    '#0066cc', '#6c757d', '#17a2b8', '#28a745'
                 ],
                 borderWidth: 0
             }]
