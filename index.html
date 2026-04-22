@@ -61,41 +61,41 @@
     <div class="container">
         <!-- Summary Cards -->
         <div class="summary-cards">
-            <div class="card card-urgent">
+            <a class="card-link" href="#urgent-section"><div class="card card-urgent">
                 <div class="card-icon">🚨</div>
                 <div class="card-content">
                     <h3 id="urgent-count">-</h3>
                     <p>Urgent Issues</p>
                 </div>
-            </div>
-            <div class="card card-active">
+            </div></a>
+            <a class="card-link" href="#in-progress-section"><div class="card card-active">
                 <div class="card-icon">🔥</div>
                 <div class="card-content">
                     <h3 id="active-count">-</h3>
                     <p>In Progress</p>
                 </div>
-            </div>
-            <div class="card card-blocked">
+            </div></a>
+            <a class="card-link" href="#blocked-section"><div class="card card-blocked">
                 <div class="card-icon">🚧</div>
                 <div class="card-content">
                     <h3 id="blocked-count">-</h3>
                     <p>Blocked</p>
                 </div>
-            </div>
-            <div class="card card-review">
+            </div></a>
+            <a class="card-link" href="#review-section"><div class="card card-review">
                 <div class="card-icon">👀</div>
                 <div class="card-content">
                     <h3 id="review-count">-</h3>
                     <p>In Review</p>
                 </div>
-            </div>
-            <div class="card card-waiting">
+            </div></a>
+            <a class="card-link" href="#waiting-section"><div class="card card-waiting">
                 <div class="card-icon">⏸️</div>
                 <div class="card-content">
                     <h3 id="waiting-count">-</h3>
                     <p>Waiting</p>
                 </div>
-            </div>
+            </div></a>
         </div>
 
         <!-- Metrics Chart -->
@@ -107,7 +107,7 @@
         </section>
 
         <!-- In Progress -->
-        <section class="section">
+        <section class="section" id="in-progress-section">
             <h2>🔥 In Progress</h2>
             <div id="active-work" class="issue-list">
                 <p class="loading">Loading in-progress work...</p>
@@ -123,7 +123,7 @@
         </section>
 
         <!-- Urgent Deadlines -->
-        <section class="section">
+        <section class="section" id="urgent-section">
             <h2>🚨 Urgent Deadlines (Next 7 Days)</h2>
             <div id="urgent-deadlines" class="issue-list">
                 <p class="loading">Loading urgent deadlines...</p>
@@ -131,7 +131,7 @@
         </section>
 
         <!-- Pending / Waiting -->
-        <section class="section">
+        <section class="section" id="waiting-section">
             <h2>⏸️ Pending / Waiting</h2>
             <div id="pending-waiting" class="issue-list">
                 <p class="loading">Loading pending/waiting issues...</p>
@@ -139,7 +139,7 @@
         </section>
 
         <!-- In Review -->
-        <section class="section">
+        <section class="section" id="review-section">
             <h2>👀 In Review</h2>
             <div id="in-review" class="issue-list">
                 <p class="loading">Loading...</p>
@@ -147,7 +147,7 @@
         </section>
 
         <!-- Blocked Issues -->
-        <section class="section">
+        <section class="section" id="blocked-section">
             <h2>🚧 Blocked Issues</h2>
             <div id="blocked-issues" class="issue-list">
                 <p class="loading">Loading blocked issues...</p>
