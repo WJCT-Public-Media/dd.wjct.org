@@ -1087,9 +1087,13 @@ footer {
 .card-link {
     text-decoration: none;
     color: inherit;
-    display: block;
+    display: flex;
+    cursor: pointer;
 }
 
-.card-link .card {
-    cursor: pointer;
+.card-link:visited,
+.card-link:hover,
+.card-link:active {
+    color: inherit;
+    text-decoration: none;
 }
