@@ -889,12 +889,14 @@ function renderSummaryCards() {
         return parseLocalDate(i.dueDate) <= sevenDays;
     });
     const active  = issues.filter(i => ['In Progress', 'Active'].includes(i.state.name));
+    const todo    = issues.filter(i => i.state.name === 'Todo');
     const blocked = issues.filter(i => i.state.name === 'Blocked');
     const review  = issues.filter(i => i.state.name === 'In Review');
     const waiting = issues.filter(i => ['Waiting', 'Pending'].includes(i.state.name));
 
     document.getElementById('urgent-count').textContent  = urgent.length;
     document.getElementById('active-count').textContent  = active.length;
+    document.getElementById('todo-count').textContent    = todo.length;
     document.getElementById('blocked-count').textContent = blocked.length;
     document.getElementById('review-count').textContent  = review.length;
     document.getElementById('waiting-count').textContent = waiting.length;

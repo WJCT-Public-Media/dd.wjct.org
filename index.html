@@ -61,18 +61,25 @@
     <div class="container">
         <!-- Summary Cards -->
         <div class="summary-cards">
-            <a class="card card-link card-urgent" href="#urgent-section">
-                <div class="card-icon">🚨</div>
-                <div class="card-content">
-                    <h3 id="urgent-count">-</h3>
-                    <p>Urgent Issues</p>
-                </div>
-            </a>
             <a class="card card-link card-active" href="#in-progress-section">
                 <div class="card-icon">🔥</div>
                 <div class="card-content">
                     <h3 id="active-count">-</h3>
                     <p>In Progress</p>
+                </div>
+            </a>
+            <a class="card card-link card-todo" href="#todo-section">
+                <div class="card-icon">📝</div>
+                <div class="card-content">
+                    <h3 id="todo-count">-</h3>
+                    <p>To Do</p>
+                </div>
+            </a>
+            <a class="card card-link card-urgent" href="#urgent-section">
+                <div class="card-icon">🚨</div>
+                <div class="card-content">
+                    <h3 id="urgent-count">-</h3>
+                    <p>Urgent Issues</p>
                 </div>
             </a>
             <a class="card card-link card-blocked" href="#blocked-section">
@@ -115,7 +122,7 @@
         </section>
 
         <!-- To Do -->
-        <section class="section">
+        <section class="section" id="todo-section">
             <h2>📝 To Do</h2>
             <div id="todo-items" class="issue-list">
                 <p class="loading">Loading to do items...</p>
