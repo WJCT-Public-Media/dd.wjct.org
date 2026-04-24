@@ -130,7 +130,7 @@ header h1 {
 /* Summary Cards */
 .summary-cards {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 20px;
     margin-bottom: 30px;
 }
@@ -1099,12 +1099,29 @@ footer {
     text-decoration: none;
 }
 
+
+
+/* Main dashboard summary row */
+.container > .summary-cards {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+/* History summary row */
+.history-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 @media (max-width: 1200px) {
-    .summary-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .container > .summary-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .history-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
 @media (max-width: 800px) {
-    .summary-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .container > .summary-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .history-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
 @media (max-width: 560px) {
-    .summary-cards { grid-template-columns: 1fr; }
+    .container > .summary-cards,
+    .history-cards { grid-template-columns: 1fr; }
 }
