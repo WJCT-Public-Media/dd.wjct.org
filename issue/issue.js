@@ -175,18 +175,12 @@ function renderIssueDetail(issue) {
                 <span class="status-badge status-${statusSlug}">${escapeHtml(issue.state?.name || 'Unknown')}</span>
             </div>
 
-            <div class="issue-detail-grid">
-                ${renderDetailField('Status', issue.state?.name || '—')}
-                ${renderDetailField('Priority', issue.priorityLabel || 'No priority')}
-                ${renderDetailField('Assignee(s)', issue.assignee?.name || 'Unassigned')}
-                ${renderDetailField('Due date', issue.dueDate ? formatDate(issue.dueDate) : 'None')}
-            </div>
-
             <div class="issue-meta issue-detail-meta">
-                <span>⚡ ${escapeHtml(issue.priorityLabel || 'No priority')}</span>
-                <span>👤 ${escapeHtml(issue.assignee?.name || 'Unassigned')}</span>
-                <span>📅 ${escapeHtml(issue.dueDate ? formatDate(issue.dueDate) : 'No due date')}</span>
-                <span class="issue-meta-labels">🏷️ ${renderLabels(labels)}</span>
+                <span>📊 ${renderDetailKicker('Status', issue.state?.name || '—')}</span>
+                <span>⚡ ${renderDetailKicker('Priority', issue.priorityLabel || 'No priority')}</span>
+                <span>👤 ${renderDetailKicker('Assignee', issue.assignee?.name || 'Unassigned')}</span>
+                <span>📅 ${renderDetailKicker('Due', issue.dueDate ? formatDate(issue.dueDate) : 'None')}</span>
+                <span class="issue-meta-labels">🏷️ ${renderDetailKicker('Labels', renderLabels(labels), true)}</span>
             </div>
 
             <div class="issue-detail-description">
@@ -196,12 +190,8 @@ function renderIssueDetail(issue) {
         </article>`;
 }
 
-function renderDetailField(label, value, allowHtml = false) {
-    return `
-        <div class="issue-detail-field">
-            <div class="issue-detail-label">${escapeHtml(label)}</div>
-            <div class="issue-detail-value">${allowHtml ? value : escapeHtml(value)}</div>
-        </div>`;
+function renderDetailKicker(label, value, allowHtml = false) {
+    return `<strong>${escapeHtml(label)}:</strong> ${allowHtml ? value : escapeHtml(value)}`;
 }
 
 function renderLabels(labels) {
