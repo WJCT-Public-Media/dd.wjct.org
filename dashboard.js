@@ -73,6 +73,7 @@ function toggleProjectCompleted(id) {
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', async () => {
+    bindIssueCardNavigation();
     selectedAssignee = readAssigneeQueryParam();
     await fetchData();
     renderDashboard();
@@ -1075,7 +1076,7 @@ function renderIssueItem(issue, showDueDate = false, depth = 0) {
     const safeDepth = Math.min(6, Math.max(0, depth));
 
     return `
-        <div class="issue-item issue-state-${statusSlug}" style="--issue-depth:${safeDepth}">
+        <div class="issue-item issue-item-link issue-state-${statusSlug}" style="--issue-depth:${safeDepth}" data-detail-url="/issue/#${escapeHtml(issue.identifier)}" role="link" tabindex="0">
             <div class="issue-header">
                 <div>
                     <a href="${issue.url}" target="_blank" class="issue-id">${issue.identifier}</a>
@@ -1090,6 +1091,25 @@ function renderIssueItem(issue, showDueDate = false, depth = 0) {
                 ${showDueDate || issue.dueDate ? dueInfo : ''}
             </div>
         </div>`;
+}
+
+function bindIssueCardNavigation() {
+    document.addEventListener('click', (event) => {
+        if (event.target.closest('a, button, input, textarea, select, label')) return;
+        const card = event.target.closest('.issue-item-link');
+        if (!card) return;
+        const url = card.getAttribute('data-detail-url');
+        if (url) window.location.href = url;
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        const card = event.target.closest('.issue-item-link');
+        if (!card) return;
+        event.preventDefault();
+        const url = card.getAttribute('data-detail-url');
+        if (url) window.location.href = url;
+    });
 }
 
 // ─── Metrics Chart ─────────────────────────────────────────────────────────────

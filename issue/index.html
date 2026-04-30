@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WJCT Digital Issue Detail</title>
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1><a href="/" class="header-home-link">WJCT Digital Media Department</a></h1>
+                <p class="subtitle">Issue detail view</p>
+            </div>
+            <div class="header-meta">
+                <div class="header-meta-top">
+                    <button id="refresh-btn" class="btn-refresh">↻ Refresh</button>
+                    <span id="last-updated">Loading...</span>
+                    <a href="/" class="btn-nav">Dashboard</a>
+                    <a href="/history" class="btn-nav">History</a>
+                </div>
+            </div>
+        </header>
+
+        <section class="section issue-detail-shell">
+            <div class="issue-detail-toolbar">
+                <label for="issue-identifier-input">Issue</label>
+                <input id="issue-identifier-input" class="metrics-combobox issue-identifier-input" placeholder="DM-1077" autocomplete="off">
+                <button id="load-issue-btn" class="btn-refresh issue-load-btn">Load</button>
+            </div>
+            <p class="issue-detail-hint">Open a specific issue with a URL like <code>/issue/#DM-1077</code>.</p>
+        </section>
+
+        <section id="issue-detail-section" class="section">
+            <div id="issue-detail-content">
+                <p class="loading">Loading issue…</p>
+            </div>
+        </section>
+
+        <section id="subissues-section" class="section hidden">
+            <h2>Subissues</h2>
+            <div id="subissues-list" class="issue-list"></div>
+        </section>
+    </div>
+
+    <script src="../config.js"></script>
+    <script src="issue.js"></script>
+</body>
+</html>
